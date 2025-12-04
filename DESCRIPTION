@@ -1,0 +1,50 @@
+Package: caugi
+Title: Causal Graph Interface
+Version: 0.3.1
+Authors@R: c(
+    person(
+      given = "Frederik", 
+      family = "Fabricius-Bjerre", 
+      email = "frederik@fabriciusbjerre.dk", 
+      role = c("aut", "cre", "cph")
+    ), 
+    person(
+      given = "Johan",
+      family = "Larsson",
+      role = "aut",
+      email = "johan@jolars.co",
+      comment = c(ORCID = "0000-0002-4029-5945")
+    ),
+    person(
+      given = "Michael",
+      family = "Sachs",
+      role = "aut",
+      email = "sachsmc@gmail.com",
+      comment = c(ORCID = "0000-0002-1279-8676")
+    )
+  )
+Description: Create, query, and modify causal graphs. 'caugi' (Causal Graph
+    Interface) is a causality-first, high performance graph package that 
+    provides a simple interface to build, structure, and examine causal 
+    relationships.
+License: MIT + file LICENSE
+URL: https://frederikfabriciusbjerre.github.io/caugi/
+BugReports: https://github.com/frederikfabriciusbjerre/caugi/issues
+Depends: R (>= 4.2)
+Imports: data.table, fastmap, S7, stats, methods
+Suggests: bnlearn, dagitty, devtools, ggm, graph, gRbase, igraph,
+        knitr, MASS, Matrix, rextendr, rmarkdown, testthat
+VignetteBuilder: knitr
+Config/rextendr/version: 0.4.2
+Encoding: UTF-8
+RoxygenNote: 7.3.3
+SystemRequirements: Cargo (Rust's package manager), rustc >= 1.80.0, xz
+Config/Needs/website: rmarkdown
+NeedsCompilation: yes
+Packaged: 2025-11-28 21:17:22 UTC; fabben
+Author: Frederik Fabricius-Bjerre [aut, cre, cph],
+  Johan Larsson [aut] (ORCID: <https://orcid.org/0000-0002-4029-5945>),
+  Michael Sachs [aut] (ORCID: <https://orcid.org/0000-0002-1279-8676>)
+Maintainer: Frederik Fabricius-Bjerre <frederik@fabriciusbjerre.dk>
+Repository: CRAN
+Date/Publication: 2025-12-04 12:00:02 UTC
