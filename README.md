@@ -1,18 +1,20 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# caugi
+# caugi <a href="https://caugi.org"><img src='man/figures/logo.svg' align="right" height="138" /></a>
 
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/frederikfabriciusbjerre/caugi/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/frederikfabriciusbjerre/caugi/actions/workflows/R-CMD-check.yaml)
 [![Code
 coverage](https://codecov.io/gh/frederikfabriciusbjerre/caugi/graph/badge.svg)](https://app.codecov.io/gh/frederikfabriciusbjerre/caugi)
+[![CRAN
+downloads](https://cranlogs.r-pkg.org/badges/caugi)](https://cran.r-project.org/package=caugi)
 [![extendr](https://img.shields.io/badge/extendr-%5E0.8.1-276DC2)](https://extendr.rs/extendr/extendr_api/)
 <!-- badges: end -->
 
-> **Causal Graph Interface (for R)** — a blazingly fast, tidy toolbox
-> for building, coercing and analyzing causal graphs.
+> **Causal Graph Interface (for R)** — a fast and flexible toolbox for
+> building, coercing and analyzing causal graphs.
 
 ## What is `caugi`?
 
@@ -36,8 +38,11 @@ or directly from CRAN with:
 install.packages("caugi")
 ```
 
-If you don’t have Rust installed, please install `rustc >= 1.80.0` or
-higher from: <https://rust-lang.org/tools/install/>
+### Installing Rust
+
+Rust is required for `caugi` to work. If you don’t have Rust installed,
+visit [rustup.rs](https://rustup.rs/) for installation instructions
+appropriate for your platform.
 
 Alternatively, you may install Rust from your OS package manager.
 
@@ -51,9 +56,9 @@ library(caugi)
 ```
 
 You can create simple graphs as well as a number of predefined graph
-classes. Currently, we support `"UNKNOWN"`, `"DAG"`, `"PDAG"`, and
-`"UG"`. We plan on supporting several other causal graph types in future
-releases, such as `"PAG"`, `"MAG"`, `"SWIG"`, and `"ADMG"`.
+classes. Currently, we support `"UNKNOWN"`, `"DAG"`, `"PDAG"`, `"ADMG"`,
+and `"UG"`. We plan on supporting several other causal graph types in
+future releases, such as `"PAG"`, `"MAG"`, and `"SWIG"`.
 
 ``` r
 # a tiny DAG
@@ -63,7 +68,11 @@ cg <- caugi(
   C %-->% D,
   class = "DAG"
 )
+
+plot(cg)
 ```
+
+![](man/figures/README-unnamed-chunk-5-1.png)<!-- -->
 
 ### Edge operators
 
@@ -91,7 +100,7 @@ register_caugi_edge(
 )
 
 caugi(A %-->% B, B %<--% C, class = "DAG")
-#> <caugi object; 3 nodes, 2 edges; simple: TRUE; built: TRUE; ptr=0x5599fd9d62a0>
+#> <caugi object; 3 nodes, 2 edges; simple: TRUE; built: TRUE; ptr=0x562aff8da3a0>
 #>   graph_class: DAG
 #>   nodes: A, B, C
 #>   edges: A-->B, B<--C
@@ -136,17 +145,16 @@ time.
 ## Why?
 
 It’s fast, *dawg* 🐶 See the [vignette on
-performance](https://frederikfabriciusbjerre.github.io/caugi/articles/performance.html)
-for benchmarks.
+performance](https://caugi.org/articles/performance.html) for
+benchmarks.
 
 ## Contribution
 
-Would you like to contribute? Great! Please see
-[CONTRIBUTING.md](https://frederikfabriciusbjerre.github.io/caugi/CONTRIBUTING.html)
-for detailed guidelines on code style, testing, and the development
-workflow. Quick tips: follow the tidyverse style guide for R code, run
-`styler::style_pkg()` for R and `cargo fmt` for Rust before PRs, and
-write tests for new features.
+Would you like to contribute? Great! Please see [Contributing to
+caugi](https://caugi.org/CONTRIBUTING.html) for detailed guidelines on
+code style, testing, and the development workflow. Quick tips: follow
+the tidyverse style guide for R code, run `styler::style_pkg()` for R
+and `cargo fmt` for Rust before PRs, and write tests for new features.
 
 Did you find run into problems? That’s *paw-ful*! Please report an
 [issue](https://github.com/frederikfabriciusbjerre/caugi/issues)!

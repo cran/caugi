@@ -9,14 +9,21 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+pub mod admg;
+pub mod ag;
 pub mod alg;
 pub mod builder;
 pub mod dag;
+pub mod error;
 pub mod pdag;
 pub mod ug;
 pub mod view;
 pub use view::GraphView;
+pub use view::NeighborMode;
+pub mod graphml;
+pub mod layout;
 pub mod metrics;
+pub mod serialization;
 
 #[derive(Debug, Clone)]
 pub struct RegistrySnapshot {

@@ -37,15 +37,20 @@
 #' @concept adjustment
 #'
 #' @export
-d_separated <- function(cg,
-                        X = NULL, Y = NULL, Z = NULL,
-                        X_index = NULL, Y_index = NULL, Z_index = NULL) {
-  is_caugi(cg, TRUE)
-  if (length(X) > 1 || length(Y) > 1 ||
-    length(X_index) > 1 || length(Y_index) > 1) {
-    stop("Provide exactly one X and one Y.",
-      call. = FALSE
-    )
+d_separated <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  Z = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  Z_index = NULL
+) {
+  is_caugi(cg, throw_error = TRUE)
+  if (
+    length(X) > 1 || length(Y) > 1 || length(X_index) > 1 || length(Y_index) > 1
+  ) {
+    stop("Provide exactly one X and one Y.", call. = FALSE)
   }
   cg <- build(cg)
 
@@ -99,18 +104,19 @@ d_separated <- function(cg,
 #' @concept adjustment
 #'
 #' @export
-adjustment_set <- function(cg,
-                           X = NULL,
-                           Y = NULL,
-                           X_index = NULL,
-                           Y_index = NULL,
-                           type = c("optimal", "parents", "backdoor")) {
-  is_caugi(cg, TRUE)
-  if (length(X) > 1 || length(Y) > 1 ||
-    length(X_index) > 1 || length(Y_index) > 1) {
-    stop("Provide exactly one X and one Y.",
-      call. = FALSE
-    )
+adjustment_set <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  type = c("optimal", "parents", "backdoor")
+) {
+  is_caugi(cg, throw_error = TRUE)
+  if (
+    length(X) > 1 || length(Y) > 1 || length(X_index) > 1 || length(Y_index) > 1
+  ) {
+    stop("Provide exactly one X and one Y.", call. = FALSE)
   }
   cg <- build(cg)
   type <- match.arg(type)
@@ -118,7 +124,8 @@ adjustment_set <- function(cg,
   X_idx0 <- .resolve_idx0_get(cg@name_index_map, X, X_index)
   Y_idx0 <- .resolve_idx0_get(cg@name_index_map, Y, Y_index)
 
-  idx0 <- switch(type,
+  idx0 <- switch(
+    type,
     parents = adjustment_set_parents_ptr(cg@ptr, X_idx0, Y_idx0),
     backdoor = adjustment_set_backdoor_ptr(cg@ptr, X_idx0, Y_idx0),
     optimal = adjustment_set_optimal_ptr(cg@ptr, X_idx0, Y_idx0)
@@ -160,19 +167,20 @@ adjustment_set <- function(cg,
 #' @concept adjustment
 #'
 #' @export
-is_valid_backdoor <- function(cg,
-                              X = NULL,
-                              Y = NULL,
-                              Z = NULL,
-                              X_index = NULL,
-                              Y_index = NULL,
-                              Z_index = NULL) {
-  is_caugi(cg, TRUE)
-  if (length(X) > 1 || length(Y) > 1 ||
-    length(X_index) > 1 || length(Y_index) > 1) {
-    stop("Provide exactly one X and one Y.",
-      call. = FALSE
-    )
+is_valid_backdoor <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  Z = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  Z_index = NULL
+) {
+  is_caugi(cg, throw_error = TRUE)
+  if (
+    length(X) > 1 || length(Y) > 1 || length(X_index) > 1 || length(Y_index) > 1
+  ) {
+    stop("Provide exactly one X and one Y.", call. = FALSE)
   }
   cg <- build(cg)
 
@@ -241,27 +249,150 @@ is_valid_backdoor <- function(cg,
 #' @concept adjustment
 #'
 #' @export
-all_backdoor_sets <- function(cg,
-                              X = NULL,
-                              Y = NULL,
-                              X_index = NULL,
-                              Y_index = NULL,
-                              minimal = TRUE,
-                              max_size = 3L) {
-  is_caugi(cg, TRUE)
-  if (length(X) > 1 || length(Y) > 1 ||
-    length(X_index) > 1 || length(Y_index) > 1) {
-    stop("Provide exactly one X and one Y.",
-      call. = FALSE
-    )
+all_backdoor_sets <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  minimal = TRUE,
+  max_size = 3L
+) {
+  is_caugi(cg, throw_error = TRUE)
+  if (
+    length(X) > 1 || length(Y) > 1 || length(X_index) > 1 || length(Y_index) > 1
+  ) {
+    stop("Provide exactly one X and one Y.", call. = FALSE)
   }
   cg <- build(cg)
-
 
   X_idx0 <- .resolve_idx0_get(cg@name_index_map, X, X_index)
   Y_idx0 <- .resolve_idx0_get(cg@name_index_map, Y, Y_index)
 
   sets_idx0 <- all_backdoor_sets_ptr(
+    cg@ptr,
+    X_idx0,
+    Y_idx0,
+    minimal,
+    as.integer(max_size)
+  )
+  nm <- cg@nodes$name
+  lapply(sets_idx0, \(idx0) nm[idx0 + 1L])
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ──────────────────────── ADMG Adjustment Functions ───────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+#' @title Is a set a valid adjustment set in an ADMG?
+#'
+#' @description Checks whether `Z` is a valid adjustment set for estimating
+#' the causal effect of `X` on `Y` in an ADMG using the generalized adjustment
+#' criterion.
+#'
+#' @param cg A `caugi` object of class ADMG.
+#' @param X,Y Node names (can be vectors for multiple treatments/outcomes).
+#' @param Z Conditioning set (character vector of node names).
+#' @param X_index,Y_index,Z_index Optional 1-based indices.
+#'
+#' @returns Logical value indicating if the adjustment set is valid.
+#'
+#' @examples
+#' # Classic confounding
+#' cg <- caugi(
+#'   L %-->% X,
+#'   X %-->% Y,
+#'   L %-->% Y,
+#'   class = "ADMG"
+#' )
+#'
+#' is_valid_adjustment_admg(cg, X = "X", Y = "Y", Z = NULL) # FALSE
+#' is_valid_adjustment_admg(cg, X = "X", Y = "Y", Z = "L") # TRUE
+#'
+#' @family adjustment
+#' @concept adjustment
+#'
+#' @export
+is_valid_adjustment_admg <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  Z = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  Z_index = NULL
+) {
+  is_caugi(cg, throw_error = TRUE)
+  # Validate that X and Y are provided
+
+  if (is.null(X) && is.null(X_index)) {
+    stop("X (or X_index) must be provided.", call. = FALSE)
+  }
+  if (is.null(Y) && is.null(Y_index)) {
+    stop("Y (or Y_index) must be provided.", call. = FALSE)
+  }
+  cg <- build(cg)
+
+  X_idx0 <- .resolve_idx0_mget(cg@name_index_map, X, X_index)
+  Y_idx0 <- .resolve_idx0_mget(cg@name_index_map, Y, Y_index)
+  Z_idx0 <- .resolve_idx0_mget(cg@name_index_map, Z, Z_index)
+
+  is_valid_adjustment_set_admg_ptr(cg@ptr, X_idx0, Y_idx0, Z_idx0)
+}
+
+#' @title Get all valid adjustment sets in an ADMG
+#'
+#' @description Enumerates all valid adjustment sets for estimating the causal
+#' effect of `X` on `Y` in an ADMG, up to a specified maximum size.
+#'
+#' @param cg A `caugi` object of class ADMG.
+#' @param X,Y Node names (can be vectors for multiple treatments/outcomes).
+#' @param X_index,Y_index Optional 1-based indices.
+#' @param minimal Logical; if `TRUE` (default), only minimal sets are returned.
+#' @param max_size Integer; maximum size of sets to consider (default 3).
+#'
+#' @returns A list of character vectors, each a valid adjustment set
+#' (possibly empty list if none exist).
+#'
+#' @examples
+#' cg <- caugi(
+#'   L %-->% X,
+#'   X %-->% Y,
+#'   L %-->% Y,
+#'   M %-->% Y,
+#'   class = "ADMG"
+#' )
+#'
+#' all_adjustment_sets_admg(cg, X = "X", Y = "Y", minimal = TRUE)
+#' # Returns {L} as minimal adjustment set
+#'
+#' @family adjustment
+#' @concept adjustment
+#'
+#' @export
+all_adjustment_sets_admg <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  minimal = TRUE,
+  max_size = 3L
+) {
+  is_caugi(cg, throw_error = TRUE)
+  # Validate that X and Y are provided
+  if (is.null(X) && is.null(X_index)) {
+    stop("X (or X_index) must be provided.", call. = FALSE)
+  }
+  if (is.null(Y) && is.null(Y_index)) {
+    stop("Y (or Y_index) must be provided.", call. = FALSE)
+  }
+  cg <- build(cg)
+
+  X_idx0 <- .resolve_idx0_mget(cg@name_index_map, X, X_index)
+  Y_idx0 <- .resolve_idx0_mget(cg@name_index_map, Y, Y_index)
+
+  sets_idx0 <- all_adjustment_sets_admg_ptr(
     cg@ptr,
     X_idx0,
     Y_idx0,
@@ -292,26 +423,26 @@ all_backdoor_sets <- function(cg,
 #'
 #' @seealso [fastmap::fastmap]
 #' @keywords internal
-.resolve_idx0_get <- function(nm_idx_map,
-                              node_name = NULL,
-                              node_index = NULL) {
+.resolve_idx0_get <- function(nm_idx_map, node_name = NULL, node_index = NULL) {
   if (!is.null(node_index)) {
     if (!is.null(node_name)) {
       stop("Provide either a node name or node index.")
     }
     as.integer(node_index - 1L)
   } else if (!is.null(node_name)) {
-    nm_idx_map$get(node_name, missing = stop(
-      paste(
-        "Non-existant node name:",
-        paste(setdiff(node_name, nm_idx_map$keys()),
-          collapse = ", "
-        )
-      ),
-      call. = FALSE
-    ))
+    nm_idx_map$get(
+      node_name,
+      missing = stop(
+        paste(
+          "Non-existent node name:",
+          paste(setdiff(node_name, nm_idx_map$keys()), collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    )
   } else {
-    stop("Either the node name or the node index must be provided.",
+    stop(
+      "Either the node name or the node index must be provided.",
       call. = FALSE
     )
   }
@@ -319,9 +450,11 @@ all_backdoor_sets <- function(cg,
 
 #' @name .resolve_idx0_get
 #' @keywords internal
-.resolve_idx0_mget <- function(nm_idx_map,
-                               node_name = NULL,
-                               node_index = NULL) {
+.resolve_idx0_mget <- function(
+  nm_idx_map,
+  node_name = NULL,
+  node_index = NULL
+) {
   if (is.null(node_name) && is.null(node_index)) {
     integer(0)
   } else if (!is.null(node_index)) {
@@ -331,13 +464,12 @@ all_backdoor_sets <- function(cg,
     as.integer(node_index - 1L)
   } else if (!is.null(node_name)) {
     as.integer(
-      nm_idx_map$mget(node_name,
+      nm_idx_map$mget(
+        node_name,
         missing = stop(
           paste(
-            "Non-existant node name:",
-            paste(setdiff(node_name, nm_idx_map$keys()),
-              collapse = ", "
-            )
+            "Non-existent node name:",
+            paste(setdiff(node_name, nm_idx_map$keys()), collapse = ", ")
           ),
           call. = FALSE
         )

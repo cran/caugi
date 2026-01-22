@@ -107,7 +107,8 @@ same_nodes <- function(cg1, cg2, throw_error = FALSE) {
       )
       stop(
         "Graphs must have the same nodes.\n",
-        "Differing nodes are: [", paste(differing_nodes, collapse = ", "),
+        "Differing nodes are: [",
+        paste(differing_nodes, collapse = ", "),
         "]."
       )
     }
@@ -157,8 +158,10 @@ is_acyclic <- function(cg, force_check = FALSE) {
   cg <- build(cg)
   if (force_check) {
     is_it <- is_acyclic_ptr(cg@ptr)
-  } else if (identical(cg@graph_class, "DAG") ||
-    identical(cg@graph_class, "PDAG")) {
+  } else if (
+    identical(cg@graph_class, "DAG") ||
+      identical(cg@graph_class, "PDAG")
+  ) {
     is_it <- TRUE
   } else {
     is_it <- is_acyclic_ptr(cg@ptr)
@@ -311,7 +314,7 @@ is_pdag <- function(cg, force_check = FALSE) {
 #'
 #' @export
 is_cpdag <- function(cg) {
-  is_caugi(cg, TRUE)
+  is_caugi(cg, throw_error = TRUE)
   cg <- build(cg)
   is_it <- is_cpdag_ptr(cg@ptr)
   is_it
@@ -352,6 +355,137 @@ is_ug <- function(cg, force_check = FALSE) {
   } else {
     # if we can't be sure from the class, we check
     is_it <- is_ug_type_ptr(cg@ptr)
+  }
+  is_it
+}
+
+#' @title Is the `caugi` graph an ADMG?
+#'
+#' @description Checks if the given `caugi` graph is an
+#' Acyclic Directed Mixed Graph (ADMG).
+#'
+#' An ADMG contains only directed (`-->`) and bidirected (`<->`) edges,
+#' and the directed part must be acyclic.
+#'
+#' @param cg A `caugi` object.
+#' @param force_check Logical; if `TRUE`, the function will test if the graph is
+#' an ADMG, if `FALSE` (default), it will look at the graph class and match
+#' it, if possible.
+#'
+#' @returns A logical value indicating whether the graph is an ADMG.
+#'
+#' @examples
+#' cg_admg <- caugi(
+#'   A %-->% B,
+#'   A %<->% C,
+#'   class = "ADMG"
+#' )
+#' is_admg(cg_admg) # TRUE
+#'
+#' cg_dag <- caugi(
+#'   A %-->% B,
+#'   class = "DAG"
+#' )
+#' is_admg(cg_dag) # TRUE (DAGs are valid ADMGs)
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+is_admg <- function(cg, force_check = FALSE) {
+  is_caugi(cg, throw_error = TRUE)
+  cg <- build(cg)
+  if (identical(cg@graph_class, "ADMG") && !force_check) {
+    is_it <- TRUE
+  } else {
+    # if we can't be sure from the class, we check
+    is_it <- is_admg_type_ptr(cg@ptr)
+  }
+  is_it
+}
+
+#' @title Is the `caugi` graph an AG?
+#'
+#' @description Checks if the given `caugi` graph is an
+#' Ancestral Graph (AG).
+#'
+#' An AG contains directed (`-->`), bidirected (`<->`), and undirected (`---`)
+#' edges, and must satisfy ancestral graph constraints (no directed cycles,
+#' anterior constraint, and undirected constraint).
+#'
+#' @param cg A `caugi` object.
+#' @param force_check Logical; if `TRUE`, the function will test if the graph is
+#' an AG, if `FALSE` (default), it will look at the graph class and match
+#' it, if possible.
+#'
+#' @returns A logical value indicating whether the graph is an AG.
+#'
+#' @examples
+#' cg_ag <- caugi(
+#'   A %-->% B,
+#'   C %<->% D,
+#'   E %---% F,
+#'   class = "AG"
+#' )
+#' is_ag(cg_ag) # TRUE
+#'
+#' cg_ug <- caugi(
+#'   A %---% B,
+#'   class = "UG"
+#' )
+#' is_ag(cg_ug) # TRUE (UGs are valid AGs)
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+is_ag <- function(cg, force_check = FALSE) {
+  is_caugi(cg, throw_error = TRUE)
+  cg <- build(cg)
+  if (identical(cg@graph_class, "AG") && !force_check) {
+    is_it <- TRUE
+  } else {
+    # if we can't be sure from the class, we check
+    is_it <- is_ag_type_ptr(cg@ptr)
+  }
+  is_it
+}
+
+#' @title Is the `caugi` graph a MAG?
+#'
+#' @description Checks if the given `caugi` graph is a
+#' Maximal Ancestral Graph (MAG).
+#'
+#' A MAG is an ancestral graph where no additional edge can be added without
+#' violating the ancestral graph constraints or changing the encoded
+#' independence model.
+#'
+#' @param cg A `caugi` object.
+#' @param force_check Logical; if `TRUE`, the function will test if the graph is
+#' a MAG, if `FALSE` (default), it will look at the graph class and match
+#' it, if possible.
+#'
+#' @returns A logical value indicating whether the graph is a MAG.
+#'
+#' @examples
+#' cg_ag <- caugi(
+#'   A %-->% B,
+#'   B %-->% C,
+#'   class = "AG"
+#' )
+#' is_mag(cg_ag) # TRUE (0 and 2 are m-separated by {B})
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+is_mag <- function(cg, force_check = FALSE) {
+  is_caugi(cg, throw_error = TRUE)
+  cg <- build(cg)
+  if (identical(cg@graph_class, "MAG") && !force_check) {
+    is_it <- TRUE
+  } else {
+    is_it <- is_mag_ptr(cg@ptr)
   }
   is_it
 }
@@ -459,8 +593,10 @@ edge_types <- function(cg) {
 #' @title Get parents of nodes in a `caugi`
 #'
 #' @description
-#' Get parents of node in a graph. Note that not both nodes and index can be
-#' given.
+#' Get parents of nodes in a graph (nodes with directed edges pointing INTO
+#' the target node). This is equivalent to `neighbors(cg, nodes, mode = "in")`.
+#'
+#' Note that not both nodes and index can be given.
 #'
 #' @param cg A `caugi` object.
 #' @param nodes A vector of node names, a vector of unquoted
@@ -496,7 +632,9 @@ parents <- function(cg, nodes = NULL, index = NULL) {
   if (nodes_supplied && index_supplied) {
     stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
   }
-  if (!cg@built) cg <- build(cg)
+  if (!cg@built) {
+    cg <- build(cg)
+  }
   if (index_supplied) {
     return(.getter_output(
       cg,
@@ -511,13 +649,12 @@ parents <- function(cg, nodes = NULL, index = NULL) {
     stop("`nodes` must be a character vector of node names.", call. = FALSE)
   }
 
-  index <- cg@name_index_map$mget(nodes,
+  index <- cg@name_index_map$mget(
+    nodes,
     missing = stop(
       paste(
-        "Non-existant node name:",
-        paste(setdiff(nodes, cg@nodes$name),
-          collapse = ", "
-        )
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
       ),
       call. = FALSE
     )
@@ -527,6 +664,11 @@ parents <- function(cg, nodes = NULL, index = NULL) {
 }
 
 #' @title Get children of nodes in a `caugi`
+#'
+#' @description
+#' Get children of nodes in a graph (nodes with directed edges pointing OUT
+#' from the target nodes).
+#' This is equivalent to `neighbors(cg, nodes, mode = "out")`.
 #'
 #' @param cg A `caugi` object.
 #' @param nodes A vector of node names, a vector of unquoted
@@ -562,7 +704,9 @@ children <- function(cg, nodes = NULL, index = NULL) {
   if (nodes_supplied && index_supplied) {
     stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
   }
-  if (!cg@built) cg <- build(cg)
+  if (!cg@built) {
+    cg <- build(cg)
+  }
   if (index_supplied) {
     return(.getter_output(
       cg,
@@ -577,13 +721,12 @@ children <- function(cg, nodes = NULL, index = NULL) {
     stop("`nodes` must be a character vector of node names.", call. = FALSE)
   }
 
-  index <- cg@name_index_map$mget(nodes,
+  index <- cg@name_index_map$mget(
+    nodes,
     missing = stop(
       paste(
-        "Non-existant node name:",
-        paste(setdiff(nodes, cg@nodes$name),
-          collapse = ", "
-        )
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
       ),
       call. = FALSE
     )
@@ -594,10 +737,36 @@ children <- function(cg, nodes = NULL, index = NULL) {
 
 #' @title Get neighbors of nodes in a `caugi`
 #'
+#' @description
+#' Get neighbors of a node in the graph, optionally filtered by edge direction
+#' or type. This function works for all graph classes including `UNKNOWN`.
+#'
 #' @param cg A `caugi` object.
 #' @param nodes A vector of node names, a vector of unquoted
 #' node names, or an expression combining these with `+` and `c()`.
 #' @param index A vector of node indexes.
+#' @param mode Character; specifies which types of neighbors to return:
+#' \describe{
+#'   \item{`"all"`}{All neighbors (default)}
+#'   \item{`"in"`}{Parents: nodes with directed edges pointing
+#'     INTO the target node (equivalent to `parents()`)}
+#'   \item{`"out"`}{Children: nodes with directed edges pointing
+#'     OUT from the target node (equivalent to `children()`)}
+#'   \item{`"undirected"`}{Nodes connected via undirected (`---`) edges}
+#'   \item{`"bidirected"`}{Nodes connected via bidirected (`<->`) edges
+#'     (equivalent to `spouses()` for ADMGs)}
+#'   \item{`"partial"`}{Nodes connected via partial edges (edges with circle
+#'     endpoints: `o-o`, `o->`, `--o`)}
+#' }
+#'
+#' Not all modes are valid for all graph classes:
+#' \itemize{
+#'   \item DAG: `"in"`, `"out"`, `"all"` only
+#'   \item PDAG: `"in"`, `"out"`, `"undirected"`, `"all"`
+#'   \item UG: `"undirected"`, `"all"` only
+#'   \item ADMG: `"in"`, `"out"`, `"bidirected"`, `"all"`
+#'   \item UNKNOWN: all modes allowed
+#' }
 #'
 #' @returns Either a character vector of node names (if a single node is
 #' requested) or a list of character vectors (if multiple nodes are requested).
@@ -618,21 +787,53 @@ children <- function(cg, nodes = NULL, index = NULL) {
 #' #> $C
 #' #> [1] "B"
 #'
+#' # Using mode to filter by edge direction
+#' neighbors(cg, "B", mode = "in") # "A" (parents)
+#' neighbors(cg, "B", mode = "out") # "C" (children)
+#'
+#' # Works for UNKNOWN graphs too
+#' cg_unknown <- caugi(
+#'   A %-->% B,
+#'   B %---% C,
+#'   C %o->% D,
+#'   class = "UNKNOWN"
+#' )
+#' neighbors(cg_unknown, "B", mode = "in") # "A"
+#' neighbors(cg_unknown, "B", mode = "undirected") # "C"
+#' neighbors(cg_unknown, "C", mode = "partial") # "D"
+#'
 #' @family queries
 #' @concept queries
 #'
 #' @export
-neighbors <- function(cg, nodes = NULL, index = NULL) {
+neighbors <- function(
+  cg,
+  nodes = NULL,
+  index = NULL,
+  mode = c(
+    "all",
+    "in",
+    "out",
+    "undirected",
+    "bidirected",
+    "partial"
+  )
+) {
   nodes_supplied <- !missing(nodes)
   index_supplied <- !missing(index) && !is.null(index)
   if (nodes_supplied && index_supplied) {
     stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
   }
-  if (!cg@built) cg <- build(cg)
+  if (!cg@built) {
+    cg <- build(cg)
+  }
+
+  mode <- match.arg(mode)
+
   if (index_supplied) {
     return(.getter_output(
       cg,
-      neighbors_of_ptr(cg@ptr, as.integer(index - 1L)),
+      neighbors_of_ptr(cg@ptr, as.integer(index - 1L), mode),
       cg@nodes$name[index]
     ))
   }
@@ -643,19 +844,22 @@ neighbors <- function(cg, nodes = NULL, index = NULL) {
     stop("`nodes` must be a character vector of node names.", call. = FALSE)
   }
 
-  index <- cg@name_index_map$mget(nodes,
+  index <- cg@name_index_map$mget(
+    nodes,
     missing = stop(
       paste(
-        "Non-existant node name:",
-        paste(setdiff(nodes, cg@nodes$name),
-          collapse = ", "
-        )
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
       ),
       call. = FALSE
     )
   )
 
-  .getter_output(cg, neighbors_of_ptr(cg@ptr, as.integer(index)), nodes)
+  .getter_output(
+    cg,
+    neighbors_of_ptr(cg@ptr, as.integer(index), mode),
+    nodes
+  )
 }
 
 #' @rdname neighbors
@@ -698,7 +902,9 @@ ancestors <- function(cg, nodes = NULL, index = NULL) {
   if (nodes_supplied && index_supplied) {
     stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
   }
-  if (!cg@built) cg <- build(cg)
+  if (!cg@built) {
+    cg <- build(cg)
+  }
   if (index_supplied) {
     return(.getter_output(
       cg,
@@ -713,13 +919,12 @@ ancestors <- function(cg, nodes = NULL, index = NULL) {
     stop("`nodes` must be a character vector of node names.", call. = FALSE)
   }
 
-  index <- cg@name_index_map$mget(nodes,
+  index <- cg@name_index_map$mget(
+    nodes,
     missing = stop(
       paste(
-        "Non-existant node name:",
-        paste(setdiff(nodes, cg@nodes$name),
-          collapse = ", "
-        )
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
       ),
       call. = FALSE
     )
@@ -764,7 +969,9 @@ descendants <- function(cg, nodes = NULL, index = NULL) {
   if (nodes_supplied && index_supplied) {
     stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
   }
-  if (!cg@built) cg <- build(cg)
+  if (!cg@built) {
+    cg <- build(cg)
+  }
   if (index_supplied) {
     return(.getter_output(
       cg,
@@ -779,19 +986,100 @@ descendants <- function(cg, nodes = NULL, index = NULL) {
     stop("`nodes` must be a character vector of node names.", call. = FALSE)
   }
 
-  index <- cg@name_index_map$mget(nodes,
+  index <- cg@name_index_map$mget(
+    nodes,
     missing = stop(
       paste(
-        "Non-existant node name:",
-        paste(setdiff(nodes, cg@nodes$name),
-          collapse = ", "
-        )
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
       ),
       call. = FALSE
     )
   )
 
   .getter_output(cg, descendants_of_ptr(cg@ptr, as.integer(index)), nodes)
+}
+
+#' @title Get anteriors of nodes in a `caugi`
+#'
+#' @description
+#' Get the anterior set of nodes in a graph. The anterior set (Richardson and
+#' Spirtes, 2002) includes all nodes reachable by following paths where every
+#' edge is either undirected or directed toward the target node.
+#'
+#' For DAGs, the anterior set equals the ancestor set (since there are no
+#' undirected edges). For PDAGs, it includes both ancestors and nodes reachable
+#' via undirected edges.
+#'
+#' @param cg A `caugi` object of class DAG or PDAG.
+#' @param nodes A vector of node names, a vector of unquoted
+#' node names, or an expression combining these with `+` and `c()`.
+#' @param index A vector of node indexes.
+#'
+#' @returns Either a character vector of node names (if a single node is
+#' requested) or a list of character vectors (if multiple nodes are requested).
+#'
+#' @examples
+#' # PDAG example with directed and undirected edges
+#' cg <- caugi(
+#'   A %-->% B %---% C,
+#'   B %-->% D,
+#'   class = "PDAG"
+#' )
+#' anteriors(cg, "A") # NULL (no anteriors)
+#' anteriors(cg, "C") # A, B
+#' anteriors(cg, "D") # A, B, C
+#'
+#' # For DAGs, anteriors equals ancestors
+#' cg_dag <- caugi(
+#'   A %-->% B %-->% C,
+#'   class = "DAG"
+#' )
+#' anteriors(cg_dag, "C") # A, B
+#'
+#' @references
+#' Richardson, T. and Spirtes, P. (2002). Ancestral graph Markov models.
+#' \emph{The Annals of Statistics}, 30(4):962-1030.
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+anteriors <- function(cg, nodes = NULL, index = NULL) {
+  nodes_supplied <- !missing(nodes)
+  index_supplied <- !missing(index) && !is.null(index)
+  if (nodes_supplied && index_supplied) {
+    stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
+  }
+  if (!cg@built) {
+    cg <- build(cg)
+  }
+  if (index_supplied) {
+    return(.getter_output(
+      cg,
+      anteriors_of_ptr(cg@ptr, as.integer(index - 1L)),
+      cg@nodes$name[index]
+    ))
+  }
+  if (!nodes_supplied) {
+    stop("Supply one of `nodes` or `index`.", call. = FALSE)
+  }
+  if (!is.character(nodes)) {
+    stop("`nodes` must be a character vector of node names.", call. = FALSE)
+  }
+
+  index <- cg@name_index_map$mget(
+    nodes,
+    missing = stop(
+      paste(
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  )
+
+  .getter_output(cg, anteriors_of_ptr(cg@ptr, as.integer(index)), nodes)
 }
 
 #' @title Get Markov blanket of nodes in a `caugi`
@@ -830,7 +1118,9 @@ markov_blanket <- function(cg, nodes = NULL, index = NULL) {
   if (nodes_supplied && index_supplied) {
     stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
   }
-  if (!cg@built) cg <- build(cg)
+  if (!cg@built) {
+    cg <- build(cg)
+  }
   if (index_supplied) {
     return(.getter_output(
       cg,
@@ -845,13 +1135,12 @@ markov_blanket <- function(cg, nodes = NULL, index = NULL) {
     stop("`nodes` must be a character vector of node names.", call. = FALSE)
   }
 
-  index <- cg@name_index_map$mget(nodes,
+  index <- cg@name_index_map$mget(
+    nodes,
     missing = stop(
       paste(
-        "Non-existant node name:",
-        paste(setdiff(nodes, cg@nodes$name),
-          collapse = ", "
-        )
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
       ),
       call. = FALSE
     )
@@ -891,10 +1180,195 @@ exogenous <- function(cg, undirected_as_parents = FALSE) {
   cg@nodes$name[idx0 + 1L]
 }
 
+#' @title Get a topological ordering of a DAG
+#'
+#' @description Returns a topological ordering of the nodes in a DAG. For every
+#' directed edge u -> v in the graph, u will appear before v in the returned
+#' ordering.
+#'
+#' @param cg A `caugi` object of class DAG.
+#'
+#' @returns A character vector of node names in topological order.
+#'
+#' @examples
+#' # Simple DAG: A -> B -> C
+#' cg <- caugi(
+#'   A %-->% B,
+#'   B %-->% C,
+#'   class = "DAG"
+#' )
+#' topological_sort(cg) # Returns c("A", "B", "C") or equivalent valid ordering
+#'
+#' # DAG with multiple valid orderings
+#' cg2 <- caugi(
+#'   A %-->% C,
+#'   B %-->% C,
+#'   class = "DAG"
+#' )
+#' # Could return c("A", "B", "C") or c("B", "A", "C")
+#' topological_sort(cg2)
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+topological_sort <- function(cg) {
+  is_caugi(cg, throw_error = TRUE)
+  cg <- build(cg)
+  idx0 <- topological_sort_ptr(cg@ptr)
+  cg@nodes$name[idx0 + 1L]
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────── ADMG-specific queries ────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+#' @title Get spouses (bidirected neighbors) of nodes in an ADMG
+#'
+#' @description Get nodes connected via bidirected edges in an ADMG.
+#'
+#' @param cg A `caugi` object of class ADMG.
+#' @param nodes A vector of node names.
+#' @param index A vector of node indexes.
+#'
+#' @returns Either a character vector of node names (if a single node is
+#' requested) or a list of character vectors (if multiple nodes are requested).
+#'
+#' @examples
+#' cg <- caugi(
+#'   A %-->% B,
+#'   A %<->% C,
+#'   B %<->% C,
+#'   class = "ADMG"
+#' )
+#' spouses(cg, "A") # "C"
+#' spouses(cg, "C") # c("A", "B")
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+spouses <- function(cg, nodes = NULL, index = NULL) {
+  nodes_supplied <- !missing(nodes)
+  index_supplied <- !missing(index) && !is.null(index)
+  if (nodes_supplied && index_supplied) {
+    stop("Supply either `nodes` or `index`, not both.", call. = FALSE)
+  }
+  if (!cg@built) {
+    cg <- build(cg)
+  }
+  if (index_supplied) {
+    return(.getter_output(
+      cg,
+      spouses_of_ptr(cg@ptr, as.integer(index - 1L)),
+      cg@nodes$name[index]
+    ))
+  }
+  if (!nodes_supplied) {
+    stop("Supply one of `nodes` or `index`.", call. = FALSE)
+  }
+  if (!is.character(nodes)) {
+    stop("`nodes` must be a character vector of node names.", call. = FALSE)
+  }
+
+  index <- cg@name_index_map$mget(
+    nodes,
+    missing = stop(
+      paste(
+        "Non-existent node name:",
+        paste(setdiff(nodes, cg@nodes$name), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  )
+
+  .getter_output(cg, spouses_of_ptr(cg@ptr, as.integer(index)), nodes)
+}
+
+#' @title Get districts (c-components) of an ADMG
+#'
+#' @description Get the districts (c-components) of an ADMG.
+#' A district is a maximal set of nodes connected via bidirected edges.
+#'
+#' @param cg A `caugi` object of class ADMG.
+#'
+#' @returns A list of character vectors,
+#' each containing the nodes in a district.
+#'
+#' @examples
+#' cg <- caugi(
+#'   A %-->% B,
+#'   A %<->% C,
+#'   D %<->% E,
+#'   class = "ADMG"
+#' )
+#' districts(cg)
+#' # Returns list with districts: {A, C}, {B}, {D, E}
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+districts <- function(cg) {
+  is_caugi(cg, throw_error = TRUE)
+  cg <- build(cg)
+  idx0_list <- districts_ptr(cg@ptr)
+  lapply(idx0_list, function(idx0) cg@nodes$name[idx0 + 1L])
+}
+
+#' @title M-separation test for AGs and ADMGs
+#'
+#' @description Test whether two sets of nodes are m-separated given a
+#' conditioning set in an ancestral graph (AG) or an ADMG.
+#'
+#' M-separation generalizes d-separation to AGs/ADMGs and applies to DAGs.
+#'
+#' @param cg A `caugi` object of class AG, ADMG, or DAG.
+#' @param X,Y,Z Node selectors: character vector of names, unquoted expression
+#'   (supports `+` and `c()`), or `NULL`. Use `*_index` to pass 1-based indices.
+#'   If `Z` is `NULL` or missing, no nodes are conditioned on.
+#' @param X_index,Y_index,Z_index Optional numeric 1-based indices (exclusive
+#'   with `X`,`Y`,`Z` respectively).
+#'
+#' @returns A logical value; `TRUE` if `X` and `Y` are m-separated given `Z`.
+#'
+#' @examples
+#' # Classic confounding example
+#' cg <- caugi(
+#'   L %-->% X,
+#'   X %-->% Y,
+#'   L %-->% Y,
+#'   class = "ADMG"
+#' )
+#' m_separated(cg, X = "X", Y = "Y") # FALSE (connected via L)
+#' m_separated(cg, X = "X", Y = "Y", Z = "L") # TRUE (L blocks the path)
+#'
+#' @family queries
+#' @concept queries
+#'
+#' @export
+m_separated <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  Z = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  Z_index = NULL
+) {
+  is_caugi(cg, throw_error = TRUE)
+  cg <- build(cg)
+
+  X_idx0 <- .resolve_idx0_mget(cg@name_index_map, X, X_index)
+  Y_idx0 <- .resolve_idx0_mget(cg@name_index_map, Y, Y_index)
+  Z_idx0 <- .resolve_idx0_mget(cg@name_index_map, Z, Z_index)
+
+  m_separated_ptr(cg@ptr, X_idx0, Y_idx0, Z_idx0)
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────── Subgraph ───────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────
-
 
 #' @title Get the induced subgraph
 #'
@@ -955,7 +1429,9 @@ subgraph <- function(cg, nodes = NULL, index = NULL) {
     pos <- match(nodes, cg@nodes$name)
     if (anyNA(pos)) {
       miss <- nodes[is.na(pos)]
-      stop("Unknown node(s): ", paste(unique(miss), collapse = ", "),
+      stop(
+        "Unknown node(s): ",
+        paste(unique(miss), collapse = ", "),
         call. = FALSE
       )
     }
@@ -965,7 +1441,8 @@ subgraph <- function(cg, nodes = NULL, index = NULL) {
 
   if (anyDuplicated(keep_idx0)) {
     dpos <- duplicated(keep_idx0) | duplicated(keep_idx0, fromLast = TRUE)
-    stop("`nodes`/`index` contains duplicates: ",
+    stop(
+      "`nodes`/`index` contains duplicates: ",
       paste(unique(keep_names[dpos]), collapse = ", "),
       call. = FALSE
     )

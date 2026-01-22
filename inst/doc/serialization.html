@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Saving and Sharing Graphs with the Caugi Format</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Saving and Sharing Graphs with the Caugi
+Format</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(caugi)</span></code></pre></div>
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>The caugi package provides a native JSON-based serialization format
+for saving and loading causal graphs. This format enables reproducible
+research, data sharing, and caching of graph structures.</p>
+</div>
+<div id="quick-start" class="section level2">
+<h2>Quick Start</h2>
+<div id="writing-graphs" class="section level3">
+<h3>Writing Graphs</h3>
+<p>First, create a causal graph:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>cg <span class="ot">&lt;-</span> <span class="fu">caugi</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  A <span class="sc">%--&gt;%</span> B <span class="sc">+</span> C,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  B <span class="sc">%--&gt;%</span> D,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  C <span class="sc">%--&gt;%</span> D,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>)</span></code></pre></div>
+<p>Then, write it to a file in the caugi format:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>tmp <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">write_caugi</span>(cg, tmp,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;Example causal graph&quot;</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">tags =</span> <span class="fu">c</span>(<span class="st">&quot;research&quot;</span>, <span class="st">&quot;example&quot;</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>)</span></code></pre></div>
+<p>That’s it! The graph is now saved in a human-readable JSON file.</p>
+</div>
+<div id="reading-graphs" class="section level3">
+<h3>Reading Graphs</h3>
+<p>You can read the graph back from the file, and verify it matches the
+original:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>cg_loaded <span class="ot">&lt;-</span> <span class="fu">read_caugi</span>(tmp)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">identical</span>(<span class="fu">edges</span>(cg), <span class="fu">edges</span>(cg_loaded))</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+</div>
+</div>
+<div id="the-caugi-format" class="section level2">
+<h2>The Caugi Format</h2>
+<div id="structure" class="section level3">
+<h3>Structure</h3>
+<p>The caugi format uses a simple, human-readable JSON structure:</p>
+<pre><code>{
+  &quot;$schema&quot;: &quot;https://caugi.org/schemas/caugi-v1.schema.json&quot;,
+  &quot;format&quot;: &quot;caugi&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;graph&quot;: {
+    &quot;class&quot;: &quot;DAG&quot;,
+    &quot;nodes&quot;: [
+      &quot;A&quot;,
+      &quot;B&quot;,
+      &quot;C&quot;,
+      &quot;D&quot;
+    ],
+    &quot;edges&quot;: [
+      {
+        &quot;from&quot;: &quot;A&quot;,
+        &quot;to&quot;: &quot;B&quot;,
+        &quot;edge&quot;: &quot;--&gt;&quot;
+      },
+      {
+        &quot;from&quot;: &quot;A&quot;,
+        &quot;to&quot;: &quot;C&quot;,
+        &quot;edge&quot;: &quot;--&gt;&quot;
+      },
+      {
+        &quot;from&quot;: &quot;B&quot;,
+        &quot;to&quot;: &quot;D&quot;,
+        &quot;edge&quot;: &quot;--&gt;&quot;
+      },
+      {
+        &quot;from&quot;: &quot;C&quot;,
+        &quot;to&quot;: &quot;D&quot;,
+        &quot;edge&quot;: &quot;--&gt;&quot;
+      }
+    ]
+  },
+  &quot;meta&quot;: {
+    &quot;comment&quot;: &quot;Example causal graph&quot;,
+    &quot;tags&quot;: [
+      &quot;research&quot;,
+      &quot;example&quot;
+    ]
+  }
+}</code></pre>
+</div>
+<div id="key-features" class="section level3">
+<h3>Key Features</h3>
+<ul>
+<li><strong>Versioned</strong>: Schema version 1 with forward
+compatibility</li>
+<li><strong>Human-readable</strong>: Uses node names and DSL operators
+(not indices)</li>
+<li><strong>Self-documenting</strong>: Includes <code>$schema</code>
+reference for IDE validation</li>
+<li><strong>Metadata support</strong>: Optional comments and tags</li>
+</ul>
+</div>
+<div id="edge-types" class="section level3">
+<h3>Edge Types</h3>
+<p>The format supports all caugi edge types using their DSL
+operators:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Operator</th>
+<th align="left">Description</th>
+<th align="left">Graph Types</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>--&gt;</code></td>
+<td align="left">Directed edge</td>
+<td align="left">DAG, PDAG, ADMG, UNKNOWN</td>
+</tr>
+<tr class="even">
+<td align="left"><code>---</code></td>
+<td align="left">Undirected edge</td>
+<td align="left">UG, PDAG, UNKNOWN</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>&lt;-&gt;</code></td>
+<td align="left">Bidirected edge</td>
+<td align="left">ADMG, UNKNOWN</td>
+</tr>
+<tr class="even">
+<td align="left"><code>o-&gt;</code></td>
+<td align="left">Partially directed</td>
+<td align="left">PDAG, UNKNOWN</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>--o</code></td>
+<td align="left">Partially undirected</td>
+<td align="left">PDAG, UNKNOWN</td>
+</tr>
+<tr class="even">
+<td align="left"><code>o-o</code></td>
+<td align="left">Partial (both circles)</td>
+<td align="left">PDAG, UNKNOWN</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="working-with-the-format" class="section level2">
+<h2>Working with the Format</h2>
+<div id="string-serialization" class="section level3">
+<h3>String Serialization</h3>
+<p>For programmatic use, you can serialize to/from strings:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Serialize to JSON string</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>json_str <span class="ot">&lt;-</span> <span class="fu">caugi_serialize</span>(cg)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">substr</span>(json_str, <span class="dv">1</span>, <span class="dv">200</span>), <span class="st">&quot;...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt; {</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;   &quot;$schema&quot;: &quot;https://caugi.org/schemas/caugi-v1.schema.json&quot;,</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;   &quot;format&quot;: &quot;caugi&quot;,</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;   &quot;version&quot;: &quot;1.0.0&quot;,</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt;   &quot;graph&quot;: {</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt;     &quot;class&quot;: &quot;DAG&quot;,</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt;     &quot;nodes&quot;: [</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt;       &quot;A&quot;,</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt;       &quot;B&quot;,</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt;       &quot;C&quot;,</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt;       &quot;D&quot;</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;   ...</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co"># Deserialize from JSON string</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>cg_from_json <span class="ot">&lt;-</span> <span class="fu">caugi_deserialize</span>(json_str)</span></code></pre></div>
+</div>
+<div id="lazy-loading" class="section level3">
+<h3>Lazy Loading</h3>
+<p>For large graphs, you can defer building:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Read without building the Rust graph structure</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>cg_lazy <span class="ot">&lt;-</span> <span class="fu">read_caugi</span>(tmp, <span class="at">lazy =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># Build when needed</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>cg_lazy <span class="ot">&lt;-</span> <span class="fu">build</span>(cg_lazy)</span></code></pre></div>
+</div>
+<div id="metadata" class="section level3">
+<h3>Metadata</h3>
+<p>Add context to your graphs with comments and tags:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">write_caugi</span>(cg, tmp,</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;Mediation model from Study A&quot;</span>,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">tags =</span> <span class="fu">c</span>(<span class="st">&quot;mediation&quot;</span>, <span class="st">&quot;study-a&quot;</span>, <span class="st">&quot;validated&quot;</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+<div id="different-graph-types" class="section level2">
+<h2>Different Graph Types</h2>
+<p>The format supports all caugi graph classes:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># DAG</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>dag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%--&gt;%</span> Z, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co"># PDAG (with undirected edges)</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>pdag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%---%</span> Z, <span class="at">class =</span> <span class="st">&quot;PDAG&quot;</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co"># ADMG (with bidirected edges)</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>admg <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%&lt;-&gt;%</span> Z, <span class="at">class =</span> <span class="st">&quot;ADMG&quot;</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co"># UG (undirected graph)</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>ug <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%---%</span> Y, Y <span class="sc">%---%</span> Z, <span class="at">class =</span> <span class="st">&quot;UG&quot;</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co"># Save them all</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="fu">write_caugi</span>(dag, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="fu">write_caugi</span>(pdag, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="fu">write_caugi</span>(admg, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="fu">write_caugi</span>(ug, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span></code></pre></div>
+</div>
+<div id="file-extension-convention" class="section level2">
+<h2>File Extension Convention</h2>
+<p>We recommend using <code>.caugi.json</code> as the file extension to
+clearly indicate both the format and content type. This helps tools
+recognize the files and enables automatic handling by IDEs and
+validators.</p>
+</div>
+<div id="schema-validation" class="section level2">
+<h2>Schema Validation</h2>
+<p>All files generated by <code>write_caugi()</code> include a
+<code>$schema</code> field pointing to the formal JSON Schema
+specification:</p>
+<pre><code>https://caugi.org/schemas/caugi-v1.schema.json</code></pre>
+<p>This enables:</p>
+<ul>
+<li><strong>IDE support</strong>: Autocomplete and inline validation in
+VS Code, IntelliJ, etc.</li>
+<li><strong>Automated validation</strong>: Use standard JSON Schema
+validators</li>
+<li><strong>Documentation</strong>: Hover hints in editors show field
+descriptions</li>
+</ul>
+</div>
+<div id="performance" class="section level2">
+<h2>Performance</h2>
+<p>Serialization is implemented in Rust for high performance. Large
+graphs serialize and deserialize efficiently:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>tmp_file <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>large_dag <span class="ot">&lt;-</span> <span class="fu">generate_graph</span>(<span class="at">n =</span> <span class="dv">1000</span>, <span class="at">m =</span> <span class="dv">500</span>, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="fu">system.time</span>(<span class="fu">write_caugi</span>(large_dag, tmp_file))</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="fu">system.time</span>(res <span class="ot">&lt;-</span> <span class="fu">read_caugi</span>(tmp_file))</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="fu">unlink</span>(tmp_file)</span></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

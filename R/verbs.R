@@ -41,7 +41,8 @@ build <- S7::new_generic("build", "cg")
 #' @export
 S7::method(build, caugi) <- function(cg, ...) {
   if (length(list(...)) > 0L) {
-    stop("`build()` does not take any arguments other than `cg`.",
+    stop(
+      "`build()` does not take any arguments other than `cg`.",
       call. = FALSE
     )
   }
@@ -74,11 +75,16 @@ S7::method(build, caugi) <- function(cg, ...) {
 
   p <- graph_builder_build_view(b, s$class)
 
+  # resolve AUTO to actual class from Rust
+  if (s$class == "AUTO") {
+    s$class <- graph_class_ptr(p)
+  }
+
   # normalize edge order
   s$edges <- .edge_constructor(
     from = s$edges$from,
     edge = s$edges$edge,
-    to   = s$edges$to
+    to = s$edges$to
   )
 
   s$ptr <- p
@@ -134,8 +140,14 @@ NULL
 
 #' @describeIn caugi_verbs Add edges.
 #' @export
-add_edges <- function(cg, ..., from = NULL, edge = NULL, to = NULL,
-                      inplace = FALSE) {
+add_edges <- function(
+  cg,
+  ...,
+  from = NULL,
+  edge = NULL,
+  to = NULL,
+  inplace = FALSE
+) {
   calls <- as.list(substitute(list(...)))[-1L]
   has_expr <- length(calls) > 0L
   has_vec <- !(is.null(from) && is.null(edge) && is.null(to))
@@ -159,33 +171,81 @@ add_edges <- function(cg, ..., from = NULL, edge = NULL, to = NULL,
 
 #' @describeIn caugi_verbs Remove edges.
 #' @export
-remove_edges <- function(cg, ..., from = NULL, edge = NULL, to = NULL,
-                         inplace = FALSE) {
+remove_edges <- function(
+  cg,
+  ...,
+  from = NULL,
+  edge = NULL,
+  to = NULL,
+  inplace = FALSE
+) {
   calls <- as.list(substitute(list(...)))[-1L]
   has_expr <- length(calls) > 0L
   has_vec <- !(is.null(from) && is.null(edge) && is.null(to))
+
   if (has_expr && has_vec) {
     stop(
       "Provide expressions via the infix operators (`A --> B`) ",
       "or vectors via the `from`, `edge`, and `to` arguments, ",
-      "but not both."
+      "but not both.",
+      call. = FALSE
     )
   }
   if (!has_expr && !has_vec) {
     return(cg)
   }
 
-  # build edges
-  edges <- .get_edges(from, edge, to, calls)
+  if (has_vec && is.null(edge)) {
+    if (!cg@simple) {
+      stop(
+        "When removing edges without specifying `edge`, `cg` must be simple.",
+        call. = FALSE
+      )
+    }
+    if (is.null(from) || is.null(to)) {
+      stop(
+        "`from` and `to` must be supplied when `edge` is omitted.",
+        call. = FALSE
+      )
+    }
+    if (length(from) != length(to)) {
+      stop("`from` and `to` must be equal length.", call. = FALSE)
+    }
 
-  # update via helper and return
+    pairs <- data.table::data.table(
+      from = as.character(from),
+      to = as.character(to)
+    )
+
+    # Remove both directions of the edge
+    pairs <- unique(data.table::rbindlist(list(
+      pairs,
+      pairs[, .(from = to, to = from)]
+    )))
+
+    return(.update_caugi(
+      cg,
+      edges = pairs,
+      action = "remove",
+      inplace = inplace
+    ))
+  }
+
+  edges <- .get_edges(from, edge, to, calls, simple = cg@simple)
   .update_caugi(cg, edges = edges, action = "remove", inplace = inplace)
 }
 
+
 #' @describeIn caugi_verbs Set edge type for given pair(s).
 #' @export
-set_edges <- function(cg, ..., from = NULL, edge = NULL, to = NULL,
-                      inplace = FALSE) {
+set_edges <- function(
+  cg,
+  ...,
+  from = NULL,
+  edge = NULL,
+  to = NULL,
+  inplace = FALSE
+) {
   calls <- as.list(substitute(list(...)))[-1L]
   has_expr <- length(calls) > 0L
   has_vec <- !(is.null(from) && is.null(edge) && is.null(to))
@@ -203,14 +263,13 @@ set_edges <- function(cg, ..., from = NULL, edge = NULL, to = NULL,
   edges <- .get_edges(from, edge, to, calls)
 
   pairs <- unique(edges[, .(from, to)])
-  cg_mod <- .update_caugi(cg,
-    edges = pairs, action = "remove",
+  cg_mod <- .update_caugi(
+    cg,
+    edges = pairs,
+    action = "remove",
     inplace = inplace
   )
-  cg_mod <- .update_caugi(cg_mod,
-    edges = edges, action = "add",
-    inplace = TRUE
-  )
+  cg_mod <- .update_caugi(cg_mod, edges = edges, action = "add", inplace = TRUE)
   cg_mod
 }
 
@@ -279,11 +338,12 @@ remove_nodes <- function(cg, ..., name = NULL, inplace = FALSE) {
 #' @param edge Character vector of edge types.
 #' @param to Character vector of target node names.
 #' @param calls List of calls from `...`.
+#' @param simple Logical, whether the graph is simple or not.
 #'
 #' @returns A `data.table` with columns `from`, `edge`, and `to`.
 #'
 #' @keywords internal
-.get_edges <- function(from, edge, to, calls) {
+.get_edges <- function(from, edge, to, calls, simple = TRUE) {
   has_vec <- !(is.null(from) && is.null(edge) && is.null(to))
   edges <- if (has_vec) {
     if (is.null(from) || is.null(edge) || is.null(to)) {
@@ -295,7 +355,7 @@ remove_nodes <- function(cg, ..., name = NULL, inplace = FALSE) {
     .edge_constructor(
       from = as.character(from),
       edge = as.character(edge),
-      to   = as.character(to)
+      to = as.character(to)
     )
   } else {
     if (length(calls) == 0L) {
@@ -347,32 +407,38 @@ remove_nodes <- function(cg, ..., name = NULL, inplace = FALSE) {
 #' @returns The updated `caugi` object.
 #'
 #' @keywords internal
-.update_caugi <- function(cg, nodes = NULL, edges = NULL,
-                          action = c("add", "remove"),
-                          inplace = FALSE) {
+.update_caugi <- function(
+  cg,
+  nodes = NULL,
+  edges = NULL,
+  action = c("add", "remove"),
+  inplace = FALSE
+) {
   action <- match.arg(action)
 
   # copy-on-write: default is NOT in-place
   if (!inplace) {
     s <- cg@`.state`
 
-    # clone state
+    # clone state safely
     state_copy <- .cg_state(
-      nodes = s$nodes,
-      edges = s$edges,
+      nodes = data.table::copy(s$nodes),
+      edges = data.table::copy(s$edges),
       ptr = NULL,
       built = FALSE,
       simple = s$simple,
       class = s$class,
-      name_index_map = s$name_index_map
+      name_index_map = s$name_index_map$clone()
     )
-
     cg_copy <- caugi(state = state_copy)
 
     # reuse the in-place path on the copy
     return(.update_caugi(
       cg_copy,
-      nodes = nodes, edges = edges, action = action, inplace = TRUE
+      nodes = nodes,
+      edges = edges,
+      action = action,
+      inplace = TRUE
     ))
   }
 
@@ -383,11 +449,13 @@ remove_nodes <- function(cg, ..., name = NULL, inplace = FALSE) {
       s$nodes <- .node_constructor(names = unique(c(s$nodes$name, nodes$name)))
     }
     if (!is.null(edges)) {
-      s$nodes <- .node_constructor(names = unique(c(
-        s$nodes$name,
-        edges$from,
-        edges$to
-      )))
+      s$nodes <- .node_constructor(
+        names = unique(c(
+          s$nodes$name,
+          edges$from,
+          edges$to
+        ))
+      )
       s$edges <- unique(
         data.table::rbindlist(list(s$edges, edges), use.names = TRUE),
         by = c("from", "edge", "to")
@@ -407,9 +475,7 @@ remove_nodes <- function(cg, ..., name = NULL, inplace = FALSE) {
     if (!is.null(edges)) {
       keys <- intersect(c("from", "edge", "to"), names(edges))
       if (!all(c("from", "to") %in% keys)) {
-        stop("edges must include at least `from` and `to`.",
-          call. = FALSE
-        )
+        stop("edges must include at least `from` and `to`.", call. = FALSE)
       }
       edges_key <- unique(edges[, ..keys])
       s$edges <- s$edges[!edges_key, on = keys]

@@ -36,15 +36,19 @@ children_of_ptr <- function(g, idxs) .Call(wrap__children_of_ptr, g, idxs)
 
 undirected_of_ptr <- function(g, idxs) .Call(wrap__undirected_of_ptr, g, idxs)
 
-neighbors_of_ptr <- function(g, idxs) .Call(wrap__neighbors_of_ptr, g, idxs)
+neighbors_of_ptr <- function(g, idxs, mode) .Call(wrap__neighbors_of_ptr, g, idxs, mode)
 
 ancestors_of_ptr <- function(g, idxs) .Call(wrap__ancestors_of_ptr, g, idxs)
 
 descendants_of_ptr <- function(g, idxs) .Call(wrap__descendants_of_ptr, g, idxs)
 
+anteriors_of_ptr <- function(g, idxs) .Call(wrap__anteriors_of_ptr, g, idxs)
+
 markov_blanket_of_ptr <- function(g, idxs) .Call(wrap__markov_blanket_of_ptr, g, idxs)
 
 exogenous_nodes_of_ptr <- function(g, undirected_as_parents) .Call(wrap__exogenous_nodes_of_ptr, g, undirected_as_parents)
+
+topological_sort_ptr <- function(g) .Call(wrap__topological_sort_ptr, g)
 
 induced_subgraph_ptr <- function(g, keep) .Call(wrap__induced_subgraph_ptr, g, keep)
 
@@ -55,6 +59,8 @@ graph_class_ptr <- function(g) .Call(wrap__graph_class_ptr, g)
 skeleton_ptr <- function(g) .Call(wrap__skeleton_ptr, g)
 
 moralize_ptr <- function(g) .Call(wrap__moralize_ptr, g)
+
+latent_project_ptr <- function(g, latents) .Call(wrap__latent_project_ptr, g, latents)
 
 is_acyclic_ptr <- function(g) .Call(wrap__is_acyclic_ptr, g)
 
@@ -67,6 +73,24 @@ is_dag_type_ptr <- function(g) .Call(wrap__is_dag_type_ptr, g)
 is_pdag_type_ptr <- function(g) .Call(wrap__is_pdag_type_ptr, g)
 
 is_ug_type_ptr <- function(g) .Call(wrap__is_ug_type_ptr, g)
+
+is_admg_type_ptr <- function(g) .Call(wrap__is_admg_type_ptr, g)
+
+is_ag_type_ptr <- function(g) .Call(wrap__is_ag_type_ptr, g)
+
+is_mag_ptr <- function(g) .Call(wrap__is_mag_ptr, g)
+
+spouses_of_ptr <- function(g, idxs) .Call(wrap__spouses_of_ptr, g, idxs)
+
+districts_ptr <- function(g) .Call(wrap__districts_ptr, g)
+
+district_of_ptr <- function(g, idx) .Call(wrap__district_of_ptr, g, idx)
+
+m_separated_ptr <- function(g, xs, ys, z) .Call(wrap__m_separated_ptr, g, xs, ys, z)
+
+is_valid_adjustment_set_admg_ptr <- function(g, xs, ys, z) .Call(wrap__is_valid_adjustment_set_admg_ptr, g, xs, ys, z)
+
+all_adjustment_sets_admg_ptr <- function(g, xs, ys, minimal, max_size) .Call(wrap__all_adjustment_sets_admg_ptr, g, xs, ys, minimal, max_size)
 
 shd_of_ptrs <- function(g1, names1, g2, names2) .Call(wrap__shd_of_ptrs, g1, names1, g2, names2)
 
@@ -99,6 +123,24 @@ ancestral_reduction_ptr <- function(g, seeds) .Call(wrap__ancestral_reduction_pt
 n_ptr <- function(g) .Call(wrap__n_ptr, g)
 
 edges_ptr_df <- function(g) .Call(wrap__edges_ptr_df, g)
+
+compute_layout_ptr <- function(g, method, packing_ratio) .Call(wrap__compute_layout_ptr, g, method, packing_ratio)
+
+compute_bipartite_layout_ptr <- function(g, partition, orientation) .Call(wrap__compute_bipartite_layout_ptr, g, partition, orientation)
+
+compute_tiered_layout_ptr <- function(g, tier_assignments, num_tiers, orientation) .Call(wrap__compute_tiered_layout_ptr, g, tier_assignments, num_tiers, orientation)
+
+write_caugi_file_ptr <- function(g, reg, graph_class, node_names, path, comment, tags) invisible(.Call(wrap__write_caugi_file_ptr, g, reg, graph_class, node_names, path, comment, tags))
+
+read_caugi_file_ptr <- function(path, reg) .Call(wrap__read_caugi_file_ptr, path, reg)
+
+serialize_caugi_ptr <- function(g, reg, graph_class, node_names, comment, tags) .Call(wrap__serialize_caugi_ptr, g, reg, graph_class, node_names, comment, tags)
+
+deserialize_caugi_ptr <- function(json, reg) .Call(wrap__deserialize_caugi_ptr, json, reg)
+
+serialize_graphml_ptr <- function(g, reg, graph_class, node_names) .Call(wrap__serialize_graphml_ptr, g, reg, graph_class, node_names)
+
+deserialize_graphml_ptr <- function(xml, reg) .Call(wrap__deserialize_graphml_ptr, xml, reg)
 
 
 # nolint end

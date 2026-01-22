@@ -27,6 +27,9 @@ skeleton(cg) # A --- B
 }
 \seealso{
 Other operations: 
+\code{\link{condition_marginalize}()},
+\code{\link{exogenize}()},
+\code{\link{latent_project}()},
 \code{\link{moralize}()},
 \code{\link{mutate_caugi}()}
 }

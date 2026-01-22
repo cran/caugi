@@ -58,7 +58,10 @@ test_that("matrix validation errors", {
   y <- matrix(0L, 2, 2)
   y[1, 2] <- 1L # circle endpoints
   y[2, 1] <- 2L # arrow endpoint
-  expect_error(as_caugi(y, class = "DAG"), "Only either 0:1 are allowed or 0,2,3")
+  expect_error(
+    as_caugi(y, class = "DAG"),
+    "Only either 0:1 are allowed or 0,2,3"
+  )
 
   # invalid codes for PAG
   z <- matrix(0L, 2, 2)
@@ -72,7 +75,8 @@ test_that("logical matrices are accepted for non-PAG and rejected for PAG", {
 
   expect_silent(as_caugi(m, class = "DAG"))
 
-  expect_error(as_caugi(m, class = "PAG"),
+  expect_error(
+    as_caugi(m, class = "PAG"),
     "PAG class is not supported for logical matrices",
     fixed = TRUE
   )
@@ -189,9 +193,7 @@ test_that("igraph dispatch works and respects directedness + collapse", {
   expect_true(all(e_un$edge == "---"))
 
   g_mut <- igraph::graph_from_edgelist(
-    matrix(c("A", "B", "B", "A"), 2, 2,
-      byrow = TRUE
-    ),
+    matrix(c("A", "B", "B", "A"), 2, 2, byrow = TRUE),
     directed = TRUE
   )
   cg_col <- as_caugi(g_mut, class = "PDAG", collapse = TRUE)
@@ -373,10 +375,12 @@ test_that("dagitty -> caugi: partial edges 'o->' and 'o-o' map correctly", {
   g <- dagitty::dagitty("pag { A @-> B; C @-@ D }")
   cg <- as_caugi(g, class = "PAG")
 
-  expect_true(any(cg@edges$from == "A" & cg@edges$to == "B" &
-    cg@edges$edge == "o->"))
-  expect_true(any(cg@edges$from == "C" & cg@edges$to == "D" &
-    cg@edges$edge == "o-o"))
+  expect_true(any(
+    cg@edges$from == "A" & cg@edges$to == "B" & cg@edges$edge == "o->"
+  ))
+  expect_true(any(
+    cg@edges$from == "C" & cg@edges$to == "D" & cg@edges$edge == "o-o"
+  ))
 })
 
 test_that("dagitty -> caugi: collapse mutual directed pairs to symmetric glyph", {
@@ -458,4 +462,49 @@ test_that("as_caugi with bnlearn and collapse = TRUE", {
   cg <- as_caugi(g, class = "PDAG", collapse = TRUE)
   expect_equal(nrow(cg@edges), 1L)
   expect_equal(unique(cg@edges$edge), "---")
+})
+
+test_that("as_caugi with bnlearn with both directed and undirected edges and collapse = TRUE", {
+  skip_if_not_installed("igraph")
+  skip_if_not_installed("bnlearn")
+
+  nodes <- c("x", "v", "w", "z", "s")
+
+  bn <- bnlearn::empty.graph(nodes)
+  bnlearn::arcs(bn) <- matrix(
+    c(
+      "x",
+      "v",
+      "x",
+      "w",
+      "v",
+      "x",
+      "v",
+      "z",
+      "w",
+      "x",
+      "w",
+      "z",
+      "z",
+      "s"
+    ),
+    ncol = 2,
+    byrow = TRUE,
+    dimnames = list(NULL, c("from", "to"))
+  )
+
+  cg <- as_caugi(bn, class = "PDAG", collapse = TRUE)
+
+  actual <- edges(cg)
+
+  expected <- data.table::data.table(
+    from = c("v", "v", "w", "w", "z"),
+    edge = c("---", "-->", "---", "-->", "-->"),
+    to = c("x", "z", "x", "z", "s")
+  )
+
+  data.table::setorder(actual, from, to, edge)
+  data.table::setorder(expected, from, to, edge)
+
+  expect_identical(actual, expected)
 })

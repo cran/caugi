@@ -4,16 +4,7 @@
 \alias{.cg_state}
 \title{Create the state environment for a \code{caugi} (internal)}
 \usage{
-.cg_state(
-  nodes,
-  edges,
-  ptr,
-  built,
-  simple,
-  class,
-  name_index_map,
-  index_name_map
-)
+.cg_state(nodes, edges, ptr, built, simple, class, name_index_map)
 }
 \arguments{
 \item{nodes}{A \code{data.table} of nodes with a \code{name} column.}
@@ -28,7 +19,7 @@
 \item{simple}{Logical; whether the graph is simple
 (no parallel edges or self-loops).}
 
-\item{class}{Character; one of \code{"UNKNOWN"}, \code{"DAG"}, or \code{"PDAG"}.}
+\item{class}{Character; one of \code{"UNKNOWN"}, \code{"DAG"}, \code{"UG"}, \code{"PDAG"}, \code{"ADMG"}, or \code{"AG"}.}
 
 \item{name_index_map}{A \code{fastmap} mapping node names to their zero indexed
 indices.}

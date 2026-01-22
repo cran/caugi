@@ -19,7 +19,9 @@ Either a character vector of node names (if a single node is
 requested) or a list of character vectors (if multiple nodes are requested).
 }
 \description{
-Get children of nodes in a \code{caugi}
+Get children of nodes in a graph (nodes with directed edges pointing OUT
+from the target nodes).
+This is equivalent to \code{neighbors(cg, nodes, mode = "out")}.
 }
 \examples{
 cg <- caugi(
@@ -41,22 +43,30 @@ children(cg, c("B", "C"))
 \seealso{
 Other queries: 
 \code{\link{ancestors}()},
+\code{\link{anteriors}()},
 \code{\link{descendants}()},
+\code{\link{districts}()},
 \code{\link{edge_types}()},
 \code{\link{edges}()},
 \code{\link{exogenous}()},
 \code{\link{is_acyclic}()},
+\code{\link{is_admg}()},
+\code{\link{is_ag}()},
 \code{\link{is_caugi}()},
 \code{\link{is_cpdag}()},
 \code{\link{is_dag}()},
 \code{\link{is_empty_caugi}()},
+\code{\link{is_mag}()},
 \code{\link{is_pdag}()},
 \code{\link{is_ug}()},
+\code{\link{m_separated}()},
 \code{\link{markov_blanket}()},
 \code{\link{neighbors}()},
 \code{\link{nodes}()},
 \code{\link{parents}()},
 \code{\link{same_nodes}()},
-\code{\link{subgraph}()}
+\code{\link{spouses}()},
+\code{\link{subgraph}()},
+\code{\link{topological_sort}()}
 }
 \concept{queries}
