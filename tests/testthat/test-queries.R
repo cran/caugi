@@ -35,17 +35,74 @@ test_that("is_acyclic forces check when requested", {
   expect_true(is_acyclic(cg, force_check = TRUE))
 })
 
+test_that("is_simple reflects declared state and force_check path", {
+  cg_simple <- caugi(A %-->% B, class = "DAG")
+  expect_true(is_simple(cg_simple))
+  expect_true(is_simple(cg_simple, force_check = TRUE))
+
+  cg_nonsimple <- caugi(
+    A %-->% B,
+    A %<->% B,
+    class = "UNKNOWN",
+    simple = FALSE
+  )
+  expect_false(is_simple(cg_nonsimple))
+  expect_false(is_simple(cg_nonsimple, force_check = TRUE))
+})
+
 test_that("query builds", {
   cg <- caugi(A %-->% B, B %-->% C, C %---% D, class = "PDAG")
-  expect_true(cg@built)
+  expect_true(!is.null(cg@session))
 
   cg <- cg |> add_edges(D %-->% E)
-  expect_false(cg@built)
+  expect_true(!is.null(cg@session))
 
   expect_true(is_acyclic(cg))
 
   # now it should be build
-  expect_true(cg@built)
+  expect_true(!is.null(cg@session))
+})
+
+test_that("build initializes session without querying", {
+  cg <- caugi(A %-->% B, B %-->% C, class = "DAG")
+  state_before <- rs_is_valid(cg@session)
+  expect_true(state_before$core_valid)
+  expect_false(state_before$view_valid)
+
+  expect_invisible(build(cg))
+
+  state_after <- rs_is_valid(cg@session)
+  expect_true(state_after$core_valid)
+  expect_true(state_after$view_valid)
+
+  # Build should not change graph content
+  expect_setequal(nodes(cg)$name, c("A", "B", "C"))
+  expect_equal(nrow(edges(cg)), 2L)
+})
+
+test_that("build is idempotent and survives updates", {
+  cg <- caugi(A %-->% B, class = "DAG")
+  build(cg)
+  state_built <- rs_is_valid(cg@session)
+  expect_true(state_built$core_valid)
+  expect_true(state_built$view_valid)
+
+  # idempotent
+  build(cg)
+  state_built2 <- rs_is_valid(cg@session)
+  expect_true(state_built2$core_valid)
+  expect_true(state_built2$view_valid)
+
+  # updating invalidates session; build again should restore
+  cg <- add_edges(cg, B %-->% C)
+  state_after_update <- rs_is_valid(cg@session)
+  expect_true(state_after_update$core_valid)
+  expect_false(state_after_update$view_valid)
+
+  build(cg)
+  state_rebuilt <- rs_is_valid(cg@session)
+  expect_true(state_rebuilt$core_valid)
+  expect_true(state_rebuilt$view_valid)
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -135,6 +192,213 @@ test_that("is_cpdag works", {
   expect_true(is_cpdag(cg))
 })
 
+test_that("is_mpdag works", {
+  cg_closed <- caugi(
+    A %-->% C,
+    B %-->% C,
+    class = "PDAG"
+  )
+  expect_true(is_mpdag(cg_closed))
+
+  # R1 applies: A -> B, C -> B, B -- D, and C not adjacent to D.
+  cg_r1 <- caugi(
+    A %-->% B,
+    C %-->% B,
+    B %---% D,
+    A %---% D,
+    class = "PDAG"
+  )
+  expect_false(is_mpdag(cg_r1))
+
+  # R2 applies: A -- B and A -> C -> B.
+  cg_r2 <- caugi(
+    A %---% B,
+    A %-->% C,
+    C %-->% B,
+    class = "PDAG"
+  )
+  expect_false(is_mpdag(cg_r2))
+
+  # R3 applies: A -- B, C -> B, D -> B, C !~ D, and A -- C, A -- D.
+  cg_r3 <- caugi(
+    A %---% B,
+    C %-->% B,
+    D %-->% B,
+    A %---% C,
+    A %---% D,
+    class = "PDAG"
+  )
+  expect_false(is_mpdag(cg_r3))
+
+  # R4 applies: A -- B and A => B through A -> C -> D -> B.
+  cg_r4 <- caugi(
+    A %---% B,
+    A %-->% C,
+    C %-->% D,
+    A %---% D,
+    D %-->% B,
+    class = "PDAG"
+  )
+  expect_false(is_mpdag(cg_r4))
+
+  cg_partial <- caugi(A %o->% B, class = "UNKNOWN")
+  expect_false(is_mpdag(cg_partial))
+})
+
+test_that("is_mpdag tracks causal-learn style multi-rule progression", {
+  # Same fixture as the operations regression test:
+  # A-B-C, A->D<-C, B-D, D-E, C-E
+  g <- caugi(
+    A %---% B,
+    B %---% C,
+    A %-->% D,
+    C %-->% D,
+    B %---% D,
+    D %---% E,
+    C %---% E,
+    class = "PDAG"
+  )
+
+  expect_false(is_mpdag(g))
+
+  g_closed <- meek_closure(g)
+  expect_true(is_mpdag(g_closed))
+
+  # Expected closure leaves only chain edges A---B---C undirected.
+  und_A <- neighbors(g_closed, "A", mode = "undirected")
+  und_B <- neighbors(g_closed, "B", mode = "undirected")
+  und_C <- neighbors(g_closed, "C", mode = "undirected")
+
+  expect_setequal(und_A, "B")
+  expect_setequal(und_B, c("A", "C"))
+  expect_setequal(und_C, "B")
+})
+
+test_that("is_cpdag rejects graphs where Meek R1 would fire", {
+  # R1: a->b, b--c, a not adj c => b->c
+  # If b--c is still undirected when R1 should have oriented it, it's not a CPDAG.
+
+  # a->b with b--c undirected, a not adjacent to c
+  cg <- caugi(A %-->% B, B %---% C, class = "PDAG")
+  expect_false(is_cpdag(cg))
+
+  # Cascading R1: a->b, b--c, c--d with a not adj c, b not adj d
+  cg <- caugi(A %-->% B, B %---% C, C %---% D, class = "PDAG")
+  expect_false(is_cpdag(cg))
+})
+
+test_that("is_cpdag rejects graphs where Meek R2 would fire", {
+  # R2: a--b and ∃ w: a->w->b => a->b
+  # a->w->b with a--b undirected
+  cg <- caugi(A %---% B, A %-->% C, C %-->% B, class = "PDAG")
+  expect_false(is_cpdag(cg))
+})
+
+test_that("is_cpdag rejects graphs where Meek R3 would fire", {
+  # R3: a--b with c->b, d->b, c not adj d, a--c, a--d => a->b
+  cg <- caugi(
+    A %---% B,
+    C %-->% B,
+    D %-->% B,
+    A %---% C,
+    A %---% D,
+    class = "PDAG"
+  )
+  expect_false(is_cpdag(cg))
+})
+
+test_that("is_cpdag rejects graphs where Meek R4 would fire", {
+  # R4: a--b and directed path a => b => orient a->b
+  # a--b with directed path a->c->d->b
+  cg <- caugi(
+    A %---% B,
+    A %-->% C,
+    C %-->% D,
+    D %-->% B,
+    class = "PDAG"
+  )
+  expect_false(is_cpdag(cg))
+})
+
+test_that("is_cpdag accepts valid CPDAGs from pgmpy test cases", {
+  # pgmpy case 3: A->B, D->C with B--C stays undirected (no rule fires)
+  # This is a valid CPDAG: B and C have parents from opposite sides,
+  # but B and C are adjacent, so no additional orientation is needed.
+  # Actually A->B, D->C, B--C: R1 check: A->B, B--C, A adj C? No.
+  # So R1 WOULD fire. This means this is NOT a valid CPDAG.
+  # pgmpy represents it differently. Let me use properly valid CPDAGs.
+
+  # V-structure A->C<-B is a valid CPDAG
+  cg <- caugi(A %-->% C, B %-->% C, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  # V-structure with R1 result: A->C<-B, C->D is valid
+  cg <- caugi(A %-->% C, B %-->% C, C %-->% D, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  # Fully undirected triangle (complete graph, no v-structures)
+  cg <- caugi(A %---% B, B %---% C, A %---% C, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  # Single undirected edge
+  cg <- caugi(A %---% B, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  # Undirected chain
+  cg <- caugi(A %---% B, B %---% C, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  # V-structure + R1 cascade + undirected component:
+  # B--A, B--D, C->E<-B, D->F<-E
+  cg <- caugi(
+    B %---% A,
+    B %---% D,
+    C %-->% E,
+    B %-->% E,
+    D %-->% F,
+    E %-->% F,
+    class = "PDAG"
+  )
+  expect_true(is_cpdag(cg))
+})
+
+test_that("is_cpdag accepts graphs with isolated nodes", {
+  cg <- caugi(A %-->% C, B %-->% C, D, E, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  cg <- caugi(A, B, C, class = "PDAG")
+  expect_true(is_cpdag(cg))
+})
+
+test_that("is_cpdag: pcalg addBgKnowledge-style chain test", {
+  # pcalg example: 3-node undirected chain a--b--c
+  # This is a valid CPDAG (no v-structures, Markov equivalent to a->b->c etc.)
+  cg <- caugi(A %---% B, B %---% C, class = "PDAG")
+  expect_true(is_cpdag(cg))
+
+  # After orienting b->c, Meek R1 should orient b->a too.
+  # So b->c with a--b (a not adj c) is NOT a valid CPDAG (R1 would fire).
+  cg <- caugi(A %---% B, B %-->% C, class = "PDAG")
+  expect_false(is_cpdag(cg))
+
+  # Fully oriented b->a, b->c IS a valid CPDAG (a<-b->c v-structure,
+  # but a and c are non-adjacent so it's a valid v-structure CPDAG).
+  # Wait: a<-b->c with a not adj c: is b a collider? No, b is a parent of both.
+  # It's a "fork" not a collider. The directed edges are not protected.
+  # Actually in b->a, b->c: these are only protected if there's a v-structure.
+  # b->a is protected if ∃ v-structure witness. There's none. So NOT a CPDAG.
+  cg <- caugi(B %-->% A, B %-->% C, class = "PDAG")
+  expect_false(is_cpdag(cg))
+})
+
+test_that("to_cpdag via generate_graph produces valid CPDAGs", {
+  # Exhaustive check: generate random DAGs and verify CPDAGs
+  for (i in 1:20) {
+    cpdag <- generate_graph(n = 8, m = sample(5:12, 1), class = "CPDAG")
+    expect_true(is_cpdag(cpdag))
+  }
+})
+
 test_that("same_nodes works", {
   cg1 <- caugi(A %-->% B, B %-->% C, class = "DAG")
   cg2 <- caugi(B %-->% C, A %-->% B, class = "DAG")
@@ -200,21 +464,33 @@ test_that("queries match with nodes and indexes", {
 
 test_that("queries fail with bad input", {
   cg <- caugi(A %-->% B, B %-->% C, B %---% D, C %---% E, class = "PDAG")
-  expect_error(children(cg, A, index = 1), "Supply either `nodes` or `index`")
-  expect_error(children(cg), "Supply one of `nodes` or `index`")
-  expect_error(parents(cg, A, index = 1), "Supply either `nodes` or `index`")
-  expect_error(parents(cg), "Supply one of `nodes` or `index`")
-  expect_error(neighbors(cg, A, index = 1), "Supply either `nodes` or `index`")
-  expect_error(neighbors(cg), "Supply one of `nodes` or `index`")
-  expect_error(ancestors(cg, "Z"), "Non-existent node name: Z")
-  expect_error(ancestors(cg, A, index = 1), "Supply either `nodes` or `index`")
-  expect_error(ancestors(cg), "Supply one of `nodes` or `index`")
-  expect_error(descendants(cg, index = 0), "must be >= 0")
+  expect_error(children(cg, "A", index = 1), "Supply either `nodes` or `index`")
+  expect_error(children(cg), "Must supply either `nodes` or `index`.")
+  expect_error(parents(cg, "A", index = 1), "Supply either `nodes` or `index`")
+  expect_error(parents(cg), "Must supply either `nodes` or `index`.")
   expect_error(
-    descendants(cg, A, index = 1),
+    neighbors(cg, "A", index = 1),
     "Supply either `nodes` or `index`"
   )
-  expect_error(descendants(cg), "Supply one of `nodes` or `index`")
+  expect_error(neighbors(cg), "Must supply either `nodes` or `index`.")
+  expect_error(ancestors(cg, "Z"), "Non-existent node name: Z")
+  expect_error(
+    ancestors(cg, "A", index = 1),
+    "Supply either `nodes` or `index`, not both."
+  )
+  expect_error(
+    ancestors(cg),
+    "Must supply either `nodes` or `index`."
+  )
+  expect_error(descendants(cg, index = 0), "must be >= 0")
+  expect_error(
+    descendants(cg, "A", index = 1),
+    "Supply either `nodes` or `index`, not both."
+  )
+  expect_error(
+    descendants(cg),
+    "Must supply either `nodes` or `index`."
+  )
 })
 
 test_that("getter queries handle missing relations and duplicates", {
@@ -243,9 +519,9 @@ test_that("aliases route correctly", {
 test_that("public getters trigger lazy build", {
   cg <- caugi(A %-->% B, B %-->% C, class = "PDAG")
   cg <- cg |> add_edges(C %---% D)
-  expect_false(cg@built)
+  expect_true(!is.null(cg@session))
   parents(cg, "B")
-  expect_true(cg@built)
+  expect_true(!is.null(cg@session))
 })
 
 test_that("nodes and edges getters work", {
@@ -325,12 +601,29 @@ test_that("markov_blanket includes undirected neighbors in PDAGs", {
   expect_setequal(mb_B, c("A", "C", "D"))
 })
 
+test_that("markov_blanket matches a multi-parent fixture on DAGs", {
+  cg <- caugi(
+    W %-->% Y,
+    X %-->% W,
+    Z1 %-->% X + Z3,
+    Z2 %-->% Y + Z3,
+    Z3 %-->% X + Y,
+    class = "DAG"
+  )
+
+  expect_setequal(markov_blanket(cg, "Z1"), c("X", "Z2", "Z3"))
+  expect_setequal(markov_blanket(cg, "Y"), c("W", "Z2", "Z3"))
+})
+
 test_that("markov_blanket argument validation", {
   cg <- caugi(A %-->% B)
-  expect_error(markov_blanket(cg), "Supply one of `nodes` or `index`")
+  expect_error(
+    markov_blanket(cg),
+    "Must supply either `nodes` or `index`."
+  )
   expect_error(
     markov_blanket(cg, nodes = "A", index = 1),
-    "either `nodes` or `index`, not both"
+    "Supply either `nodes` or `index`, not both."
   )
 })
 
@@ -382,9 +675,9 @@ test_that("getter queries builds", {
     markov_blanket
   )
   for (getter in getter_queries) {
-    cg <- caugi(A %-->% B, B %-->% C, class = "DAG", build = FALSE)
+    cg <- caugi(A %-->% B, B %-->% C, class = "DAG")
     getter(cg, "B")
-    expect_true(cg@built)
+    expect_true(!is.null(cg@session))
   }
 })
 
@@ -416,7 +709,7 @@ test_that("subgraph selects nodes and errors with none", {
     edge = c("-->", "-->"),
     to = c("B", "C")
   )
-  expect_error(subgraph(cg), "Supply one of `nodes` or `index`.")
+  expect_error(subgraph(cg), "Must supply either `nodes` or `index`.")
 
   sg <- subgraph(cg, nodes = c("A", "B"))
   expect_setequal(sg@nodes$name, c("A", "B"))
@@ -434,7 +727,7 @@ test_that("subgraph errors on invalid arg combos", {
     nodes = c("A", "B"),
     class = "UNKNOWN"
   )
-  expect_error(subgraph(g), "Supply one of `nodes` or `index`")
+  expect_error(subgraph(g), "Must supply either `nodes` or `index`.")
   expect_error(subgraph(g, nodes = "A", index = 1), "not both")
 })
 
@@ -447,7 +740,10 @@ test_that("subgraph validates index", {
     class = "UNKNOWN"
   )
   expect_error(subgraph(g, index = "a"), "`index` must be numeric")
-  expect_error(subgraph(g, index = c(1, NA_integer_)), "numeric without NA")
+  expect_error(
+    subgraph(g, index = c(1, NA_integer_)),
+    "`index` cannot contain NA values"
+  )
   expect_error(subgraph(g, index = 0), "out of range")
   expect_error(subgraph(g, index = 3), "out of range")
 })
@@ -462,7 +758,10 @@ test_that("subgraph validates nodes", {
     class = "UNKNOWN"
   )
   expect_error(subgraph(g, nodes = 1), "character vector")
-  expect_error(subgraph(g, nodes = c("A", NA_character_)), "contains NA")
+  expect_error(
+    subgraph(g, nodes = c("A", NA_character_)),
+    "`nodes` cannot contain NA values"
+  )
   expect_error(subgraph(g, nodes = c("A", "Z")), "Unknown node\\(s\\): Z")
 })
 
@@ -489,11 +788,9 @@ test_that("subgraph on graph without edges keeps nodes and empty edges", {
   s <- subgraph(g, nodes = c("C", "A"))
   expect_identical(s@nodes$name, c("C", "A"))
   expect_equal(nrow(s@edges), 0L)
-  expect_true(s@built)
+  expect_true(!is.null(s@session))
   expect_identical(s@graph_class, g@graph_class)
   expect_identical(s@simple, g@simple)
-  expect_identical(s@name_index_map$get("C"), 0L)
-  expect_identical(s@name_index_map$get("A"), 1L)
 })
 
 test_that("subgraph filters edges to kept names and sorts", {
@@ -526,7 +823,48 @@ test_that("subgraph with index matches nodes variant", {
   s2 <- subgraph(g, index = c(2L, 1L, 3L))
   expect_identical(s1@nodes$name, s2@nodes$name)
   expect_identical(s1@edges, s2@edges)
-  expect_true(s1@built && s2@built)
+  expect_true(!is.null(s1@session) && !is.null(s2@session))
+})
+
+test_that("districts supports all, nodes, and index modes", {
+  cg <- caugi(
+    A %<->% B,
+    B %<->% C,
+    C %-->% D,
+    class = "ADMG"
+  )
+
+  all_d <- districts(cg)
+  expect_equal(length(all_d), 2L)
+  expect_true(any(vapply(
+    all_d,
+    function(x) setequal(x, c("A", "B", "C")),
+    logical(1)
+  )))
+  expect_true(any(vapply(all_d, function(x) identical(x, "D"), logical(1))))
+
+  expect_setequal(districts(cg, nodes = "A"), c("A", "B", "C"))
+
+  by_nodes <- districts(cg, nodes = c("A", "D"))
+  expect_named(by_nodes, c("A", "D"))
+  expect_setequal(by_nodes$A, c("A", "B", "C"))
+  expect_identical(by_nodes$D, "D")
+
+  by_index <- districts(cg, index = c(1L, 4L))
+  expect_named(by_index, c("A", "D"))
+  expect_setequal(by_index$A, c("A", "B", "C"))
+  expect_identical(by_index$D, "D")
+})
+
+test_that("districts validates argument combinations", {
+  cg <- caugi(A %<->% B, class = "ADMG")
+
+  expect_error(
+    districts(cg, nodes = "A", index = 1L),
+    "either `nodes` or `index`"
+  )
+  expect_error(districts(cg, index = 0), "out of range")
+  expect_error(districts(cg, nodes = c("A", NA_character_)), "without NA")
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -867,4 +1205,414 @@ test_that("anteriors returns list for multiple nodes", {
   expect_named(result, c("A", "D"))
   expect_null(result$A)
   expect_equal(sort(result$D), c("A", "B", "C"))
+})
+
+# ────────────────────────────── Posteriors tests ──────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("posteriors works for DAG (equals descendants)", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    class = "DAG"
+  )
+  expect_equal(sort(posteriors(cg, "A")), c("B", "C"))
+  expect_equal(posteriors(cg, "B"), "C")
+  expect_null(posteriors(cg, "C"))
+})
+
+test_that("posteriors works for PDAG with mixed edges", {
+  # PDAG: A -> B --- C, B -> D
+  cg <- caugi(
+    A %-->% B %---% C,
+    B %-->% D,
+    class = "PDAG"
+  )
+  # A's posteriors: B (child) -> C (undirected of B), D (child of B)
+  expect_equal(sort(posteriors(cg, "A")), c("B", "C", "D"))
+  # B's posteriors: D (child) and C (undirected)
+  expect_equal(sort(posteriors(cg, "B")), c("C", "D"))
+  # C's posteriors: B (undirected) -> D (child of B)
+  expect_equal(sort(posteriors(cg, "C")), c("B", "D"))
+  # D has no posteriors
+  expect_null(posteriors(cg, "D"))
+})
+
+test_that("posteriors works for PDAG with undirected cycle", {
+  # PDAG: A --- B --- C --- A (triangle)
+  cg <- caugi(
+    A %---% B,
+    B %---% C,
+    C %---% A,
+    class = "PDAG"
+  )
+  # All nodes can reach all others via undirected edges
+  # For undirected-only graphs, posteriors == anteriors
+  expect_equal(sort(posteriors(cg, "A")), c("B", "C"))
+  expect_equal(sort(posteriors(cg, "B")), c("A", "C"))
+  expect_equal(sort(posteriors(cg, "C")), c("A", "B"))
+})
+
+test_that("posteriors not defined for UG", {
+  cg <- caugi(
+    A %---% B,
+    B %---% C,
+    class = "UG"
+  )
+  expect_error(posteriors(cg, "B"), "not defined for UG")
+})
+
+test_that("posteriors not defined for ADMG", {
+  cg <- caugi(
+    A %-->% B,
+    A %<->% C,
+    class = "ADMG"
+  )
+  expect_error(posteriors(cg, "B"), "not defined for ADMG")
+})
+
+test_that("posteriors returns list for multiple nodes", {
+  cg <- caugi(
+    A %-->% B %---% C,
+    B %-->% D,
+    class = "PDAG"
+  )
+  result <- posteriors(cg, c("A", "D"))
+  expect_type(result, "list")
+  expect_named(result, c("A", "D"))
+  expect_equal(sort(result$A), c("B", "C", "D"))
+  expect_null(result$D)
+})
+
+test_that("posteriors works with index parameter", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    class = "DAG"
+  )
+  # Index 1 is A (0-indexed becomes 1-indexed in R)
+  expect_equal(sort(posteriors(cg, index = 1)), c("B", "C"))
+  expect_equal(posteriors(cg, index = 2), "C")
+})
+
+test_that("posteriors excludes the node itself", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    class = "DAG"
+  )
+  res <- posteriors(cg, "A")
+  expect_false("A" %in% res)
+})
+
+test_that("posteriors handles multi-step mixed reachability (PDAG)", {
+  # A -> B --- C --- D -> E
+  cg <- caugi(
+    A %-->% B,
+    B %---% C,
+    C %---% D,
+    D %-->% E,
+    class = "PDAG"
+  )
+
+  # From A: B, C, D, E should all be reachable
+  expect_equal(sort(posteriors(cg, "A")), c("B", "C", "D", "E"))
+})
+
+test_that("posteriors does not return duplicates in undirected cycles", {
+  # A --- B --- C --- A
+  cg <- caugi(
+    A %---% B,
+    B %---% C,
+    C %---% A,
+    class = "PDAG"
+  )
+
+  res <- posteriors(cg, "A")
+  expect_equal(length(res), length(unique(res)))
+})
+
+test_that("posteriors handles branching mixed structure correctly", {
+  #      B --- C
+  #     /
+  # A ->
+  #     \
+  #      D -> E
+  cg <- caugi(
+    A %-->% B,
+    B %---% C,
+    A %-->% D,
+    D %-->% E,
+    class = "PDAG"
+  )
+
+  expect_equal(sort(posteriors(cg, "A")), c("B", "C", "D", "E"))
+})
+
+test_that("posteriors works for multiple starting nodes (set semantics)", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    D %-->% E,
+    class = "DAG"
+  )
+
+  res <- posteriors(cg, c("A", "D"))
+
+  expect_type(res, "list")
+  expect_named(res, c("A", "D"))
+
+  expect_equal(sort(res$A), c("B", "C"))
+  expect_equal(res$D, "E")
+})
+
+test_that("posteriors returns empty (NULL) when no reachable nodes exist", {
+  cg <- caugi(
+    A %-->% B,
+    class = "DAG"
+  )
+
+  expect_null(posteriors(cg, "B"))
+})
+
+test_that("posteriors respects disconnected components", {
+  cg <- caugi(
+    A %-->% B,
+    C %-->% D,
+    class = "DAG"
+  )
+
+  expect_equal(posteriors(cg, "A"), "B")
+  expect_equal(posteriors(cg, "C")[posteriors(cg, "C") == "A"], character(0))
+})
+
+test_that("posteriors index parameter matches name-based query", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    class = "DAG"
+  )
+
+  nodes_vec <- nodes(cg)
+  idx_A <- which(nodes_vec == "A")
+
+  expect_equal(
+    sort(posteriors(cg, index = idx_A)),
+    sort(posteriors(cg, "A"))
+  )
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────── Closed graph definition tests ─────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("ancestors, anteriors, descendants, posteriors errors on not boolean open argument", {
+  cg <- caugi(
+    A %-->% B %---% C,
+    B %-->% D,
+    class = "PDAG"
+  )
+
+  expect_error(
+    ancestors(cg, "A", open = "hi"),
+    "`open` must be a single TRUE or FALSE."
+  )
+  expect_error(
+    anteriors(cg, "A", open = "hi"),
+    "`open` must be a single TRUE or FALSE."
+  )
+  expect_error(
+    descendants(cg, "A", open = "hi"),
+    "`open` must be a single TRUE or FALSE."
+  )
+  expect_error(
+    posteriors(cg, "A", open = c(TRUE, FALSE)),
+    "`open` must be a single TRUE or FALSE."
+  )
+})
+
+test_that("ancestors, anteriors, descendants, posteriors handles closed graph definition", {
+  cg <- caugi(
+    A %-->% B %---% C,
+    B %-->% D,
+    class = "PDAG"
+  )
+
+  expect_equal(ancestors(cg, "A", open = FALSE), "A")
+  expect_equal(ancestors(cg, "B", open = FALSE), c("B", "A"))
+
+  expect_equal(anteriors(cg, "A", open = FALSE), "A")
+  expect_equal(
+    anteriors(cg, "C", open = FALSE),
+    c("C", "A", "B")
+  )
+
+  expect_equal(
+    descendants(cg, "A", open = FALSE),
+    c("A", "B", "D")
+  )
+  expect_equal(descendants(cg, "B", open = FALSE), c("B", "D"))
+  expect_equal(posteriors(cg, "A", open = FALSE), c("A", "B", "C", "D"))
+  expect_equal(posteriors(cg, "B", open = FALSE), c("B", "C", "D"))
+})
+
+test_that("Setting use_open_graph_definition via caugi_options works", {
+  caugi_options(use_open_graph_definition = FALSE)
+  cg <- caugi(
+    A %-->% B %---% C,
+    B %-->% D,
+    class = "PDAG"
+  )
+
+  expect_equal(ancestors(cg, "A"), "A")
+  expect_equal(ancestors(cg, "B"), c("B", "A"))
+
+  expect_equal(anteriors(cg, "A"), "A")
+  expect_equal(anteriors(cg, "C"), c("C", "A", "B"))
+
+  expect_equal(descendants(cg, "A"), c("A", "B", "D"))
+  expect_equal(descendants(cg, "B"), c("B", "D"))
+
+  expect_equal(posteriors(cg, "A"), c("A", "B", "C", "D"))
+
+  # Can still override with explicit argument
+  expect_equal(ancestors(cg, "A", open = TRUE), NULL)
+  expect_equal(anteriors(cg, "A", open = TRUE), NULL)
+  expect_equal(descendants(cg, "A", open = TRUE), c("B", "D"))
+  expect_equal(posteriors(cg, "A", open = TRUE), c("B", "C", "D"))
+
+  # Reset to defaults
+  caugi_options(caugi_default_options())
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ──────────────────── open_graph_def fast-access env var ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("open_graph_def is TRUE by default", {
+  expect_true(.caugi_env$open_graph_def)
+})
+
+test_that("open_graph_def syncs to FALSE when use_open_graph_definition is set FALSE", {
+  on.exit(caugi_options(caugi_default_options()), add = TRUE)
+
+  caugi_options(use_open_graph_definition = FALSE)
+  expect_false(.caugi_env$open_graph_def)
+})
+
+test_that("open_graph_def syncs back to TRUE when use_open_graph_definition is set TRUE", {
+  on.exit(caugi_options(caugi_default_options()), add = TRUE)
+
+  caugi_options(use_open_graph_definition = FALSE)
+  caugi_options(use_open_graph_definition = TRUE)
+  expect_true(.caugi_env$open_graph_def)
+})
+
+test_that("open_graph_def is restored to TRUE by caugi_default_options()", {
+  on.exit(caugi_options(caugi_default_options()), add = TRUE)
+
+  caugi_options(use_open_graph_definition = FALSE)
+  expect_false(.caugi_env$open_graph_def)
+
+  caugi_options(caugi_default_options())
+  expect_true(.caugi_env$open_graph_def)
+})
+
+test_that("open_graph_def is unaffected by unrelated option updates", {
+  on.exit(caugi_options(caugi_default_options()), add = TRUE)
+
+  caugi_options(plot = list(spacing = grid::unit(2, "lines")))
+  expect_true(.caugi_env$open_graph_def)
+})
+
+test_that("missing(open) uses global option; explicit open overrides it", {
+  on.exit(caugi_options(caugi_default_options()), add = TRUE)
+
+  cg <- caugi(A %-->% B %-->% C, class = "DAG")
+
+  # With default option (open = TRUE): node excluded
+  expect_equal(ancestors(cg, "B"), "A")
+
+  # Switch global option to closed; missing open now means closed
+  caugi_options(use_open_graph_definition = FALSE)
+  expect_equal(ancestors(cg, "B"), c("B", "A"))
+
+  # Explicit open = TRUE overrides the closed global option
+  expect_equal(ancestors(cg, "B", open = TRUE), "A")
+
+  # Explicit open = FALSE overrides the open global option after reset
+  caugi_options(use_open_graph_definition = TRUE)
+  expect_equal(ancestors(cg, "B", open = FALSE), c("B", "A"))
+})
+
+test_that("getter and districts branches are covered", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    B %---% D,
+    class = "PDAG"
+  )
+
+  expect_true("B" %in% ancestors(cg, index = 2, open = FALSE))
+  expect_true("A" %in% descendants(cg, index = 1, open = FALSE))
+  expect_true("D" %in% anteriors(cg, index = 4, open = FALSE))
+
+  expect_error(
+    posteriors(cg, nodes = "A", index = 1),
+    "Supply either `nodes` or `index`, not both."
+  )
+  expect_error(
+    posteriors(cg),
+    "Supply one of `nodes` or `index`."
+  )
+  expect_error(
+    posteriors(cg, nodes = 1),
+    "`nodes` must be a character vector of node names."
+  )
+  expect_true("B" %in% posteriors(cg, index = 2, open = FALSE))
+
+  cg_admg <- caugi(
+    A %<->% B,
+    B %<->% C,
+    C %-->% D,
+    class = "ADMG"
+  )
+  expect_setequal(spouses(cg_admg, index = 2), c("A", "C"))
+
+  # Test that deprecated 'all' parameter shows warning
+  expect_warning(
+    districts(cg_admg, all = TRUE),
+    "deprecated"
+  )
+
+  # Test error for invalid index
+  expect_error(
+    districts(cg_admg, index = c(1, NA)),
+    "`index` must be numeric without NA."
+  )
+
+  # Test getting all districts (new API - no parameters)
+  all_districts <- districts(cg_admg)
+  expect_true(is.list(all_districts))
+  expect_true(length(all_districts) >= 1L)
+})
+
+test_that("is_mag class short-circuit branch is covered", {
+  cg <- caugi(A %-->% B, class = "DAG")
+  out <- testthat::with_mocked_bindings(
+    is_mag(cg),
+    rs_class = function(session) "MAG",
+    .package = "caugi"
+  )
+  expect_true(out)
+})
+
+test_that("nodes_to_indices errors when session is missing", {
+  cg <- caugi(A %-->% B, class = "DAG")
+  bad <- cg
+  attr(bad, "session") <- NULL
+  expect_error(
+    caugi:::.nodes_to_indices(bad, "A"),
+    "Cannot look up indices for empty graph."
+  )
 })

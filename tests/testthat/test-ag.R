@@ -151,6 +151,26 @@ test_that("anteriors work for AG", {
   expect_true("C" %in% ant_e) # via D --- C
 })
 
+test_that("posteriors work for AG", {
+  # Posteriors include children and undirected neighbors transitively
+  # Note: In an AG, a node with undirected edge can't have arrowhead edges
+  # So we create a valid graph: A --> B, C --- D --- E
+  ag <- caugi(
+    A %-->% B,
+    C %---% D %---% E,
+    class = "AG"
+  )
+
+  # Posteriors of A: B (child)
+  post_a <- posteriors(ag, "A")
+  expect_true("B" %in% post_a)
+
+  # Posteriors of C: D (undirected), E (via D)
+  post_c <- posteriors(ag, "C")
+  expect_true("D" %in% post_c)
+  expect_true("E" %in% post_c) # via D --- E
+})
+
 test_that("exogenous returns nodes without parents", {
   ag <- caugi(
     A %-->% B,
@@ -212,6 +232,23 @@ test_that("m_separated works for undirected paths in AG", {
 
   # A and C m-separated given B
   expect_true(m_separated(ag, X = "A", Y = "C", Z = "B"))
+})
+
+test_that("m_separated blocks a mixed path when conditioning on undirected bridge", {
+  ag <- caugi(
+    `1` %-->% `4`,
+    `2` %-->% `4`,
+    `2` %-->% `3`,
+    `3` %-->% `5`,
+    `4` %-->% `5`,
+    `1` %-->% `3`,
+    `1` %---% `6`,
+    `6` %---% `2`,
+    class = "AG"
+  )
+
+  expect_false(m_separated(ag, X = "1", Y = "2"))
+  expect_true(m_separated(ag, X = "1", Y = "2", Z = "6"))
 })
 
 test_that("m_separated handles bidirected confounding in AG", {

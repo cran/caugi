@@ -4,11 +4,11 @@
 use super::Dag;
 use crate::edges::EdgeClass;
 use crate::graph::admg::Admg;
-use crate::graph::alg::csr;
+use crate::graph::alg::{csr, meek};
 use crate::graph::pdag::Pdag;
 use crate::graph::ug::Ug;
 use crate::graph::CaugiGraph;
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
 impl Dag {
@@ -322,68 +322,18 @@ impl Dag {
     }
 
     /// Convert DAG to CPDAG using Meek's rules.
+    ///
+    /// # References
+    ///
+    /// C. Meek (1995). Causal inference and causal explanation with background
+    /// knowledge. In *Proceedings of the Eleventh Conference on Uncertainty in
+    /// Artificial Intelligence (UAI-95)*, pp. 403–411. Morgan Kaufmann.
     pub fn to_cpdag(&self) -> Result<Pdag, String> {
         let n = self.n() as usize;
 
         let mut pa: Vec<HashSet<u32>> = vec![HashSet::new(); n];
         let mut ch: Vec<HashSet<u32>> = vec![HashSet::new(); n];
         let mut und: Vec<HashSet<u32>> = vec![HashSet::new(); n];
-
-        #[inline]
-        fn adjacent(
-            a: usize,
-            b: usize,
-            und: &[HashSet<u32>],
-            pa: &[HashSet<u32>],
-            ch: &[HashSet<u32>],
-        ) -> bool {
-            und[a].contains(&(b as u32))
-                || und[b].contains(&(a as u32))
-                || pa[a].contains(&(b as u32))
-                || ch[a].contains(&(b as u32))
-                || pa[b].contains(&(a as u32))
-                || ch[b].contains(&(a as u32))
-        }
-
-        #[inline]
-        fn orient(
-            a: u32,
-            b: u32,
-            und: &mut [HashSet<u32>],
-            pa: &mut [HashSet<u32>],
-            ch: &mut [HashSet<u32>],
-        ) {
-            let ai = a as usize;
-            let bi = b as usize;
-            und[ai].remove(&b);
-            und[bi].remove(&a);
-            ch[ai].insert(b);
-            pa[bi].insert(a);
-        }
-
-        fn has_dir_path(ch: &[HashSet<u32>], src: u32, tgt: u32) -> bool {
-            if src == tgt {
-                return true;
-            }
-            let n = ch.len();
-            let mut seen = vec![false; n];
-            let mut q = VecDeque::new();
-            q.push_back(src);
-            while let Some(u) = q.pop_front() {
-                if u == tgt {
-                    return true;
-                }
-                if std::mem::replace(&mut seen[u as usize], true) {
-                    continue;
-                }
-                for &v in &ch[u as usize] {
-                    if !seen[v as usize] {
-                        q.push_back(v);
-                    }
-                }
-            }
-            false
-        }
 
         // Skeleton from DAG (undirected)
         for u in 0..self.n() {
@@ -400,95 +350,15 @@ impl Dag {
                 for j in (i + 1)..parents.len() {
                     let a = parents[i] as usize;
                     let c = parents[j] as usize;
-                    if !adjacent(a, c, &und, &pa, &ch) {
-                        orient(parents[i], b, &mut und, &mut pa, &mut ch);
-                        orient(parents[j], b, &mut und, &mut pa, &mut ch);
+                    if !meek::adjacent(a, c, &und, &pa, &ch) {
+                        meek::orient(parents[i], b, &mut und, &mut pa, &mut ch);
+                        meek::orient(parents[j], b, &mut und, &mut pa, &mut ch);
                     }
                 }
             }
         }
 
-        // Meek closure (R1–R4)
-        loop {
-            let mut changed = false;
-
-            // R1: a->b, b--c, a !~ c  ⇒  b->c
-            for b in 0..n {
-                if pa[b].is_empty() || und[b].is_empty() {
-                    continue;
-                }
-                let pb: Vec<u32> = pa[b].iter().copied().collect();
-                let ubs: Vec<u32> = und[b].clone().into_iter().collect();
-                'c_loop: for c in ubs {
-                    let ci = c as usize;
-                    for &a in &pb {
-                        if !adjacent(a as usize, ci, &und, &pa, &ch) {
-                            orient(b as u32, c, &mut und, &mut pa, &mut ch);
-                            changed = true;
-                            continue 'c_loop;
-                        }
-                    }
-                }
-            }
-
-            // R2: a--b and ∃ w: a->w, w->b  ⇒  a->b
-            for a in 0..n {
-                let uab: Vec<u32> = und[a].clone().into_iter().collect();
-                for b_u in uab {
-                    let b = b_u as usize;
-                    if ch[a].iter().any(|w| pa[b].contains(w)) {
-                        orient(a as u32, b_u, &mut und, &mut pa, &mut ch);
-                        changed = true;
-                        continue;
-                    }
-                    if ch[b].iter().any(|w| pa[a].contains(w)) {
-                        orient(b_u, a as u32, &mut und, &mut pa, &mut ch);
-                        changed = true;
-                    }
-                }
-            }
-
-            // R3: a--b and ∃ c,d: c->b, d->b, c !~ d, a--c, a--d  ⇒  a->b
-            for a in 0..n {
-                let uab: Vec<u32> = und[a].clone().into_iter().collect();
-                for b_u in uab {
-                    let b = b_u as usize;
-                    let pb: Vec<u32> = pa[b].iter().copied().collect();
-                    'pairs: for i in 0..pb.len() {
-                        for j in (i + 1)..pb.len() {
-                            let c = pb[i] as usize;
-                            let d = pb[j] as usize;
-                            if !adjacent(c, d, &und, &pa, &ch)
-                                && und[a].contains(&pb[i])
-                                && und[a].contains(&pb[j])
-                            {
-                                orient(a as u32, b_u, &mut und, &mut pa, &mut ch);
-                                changed = true;
-                                break 'pairs;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // R4: a--b and (a ⇒ b or b ⇒ a)  ⇒  orient along reachability
-            for a in 0..n {
-                let uab: Vec<u32> = und[a].clone().into_iter().collect();
-                for b_u in uab {
-                    if has_dir_path(&ch, a as u32, b_u) {
-                        orient(a as u32, b_u, &mut und, &mut pa, &mut ch);
-                        changed = true;
-                    } else if has_dir_path(&ch, b_u, a as u32) {
-                        orient(b_u, a as u32, &mut und, &mut pa, &mut ch);
-                        changed = true;
-                    }
-                }
-            }
-
-            if !changed {
-                break;
-            }
-        }
+        meek::apply_meek_closure(&mut pa, &mut ch, &mut und, false);
 
         // Build CSR core (parents | undirected | children)
         let specs = &self.core_ref().registry.specs;
@@ -572,7 +442,7 @@ impl Dag {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::edges::EdgeRegistry;
+    use crate::edges::{EdgeClass, EdgeRegistry, EdgeSpec, Mark};
     use crate::graph::builder::GraphBuilder;
 
     #[test]
@@ -621,6 +491,373 @@ mod tests {
         assert_eq!(ug.neighbors_of(0), &[1, 2]);
         assert_eq!(ug.neighbors_of(1), &[0, 2]);
         assert_eq!(ug.neighbors_of(2), &[0, 1]);
+    }
+
+    #[test]
+    fn dag_to_cpdag_meek_r1_chain() {
+        // pgmpy test case 2: A->B with B--C, C--D in the CPDAG skeleton.
+        // DAG: A->B<-X (v-structure at B), B->C, C->D
+        // After v-structure: A->B<-X, B--C, C--D
+        // R1 fires on B--C (A->B, A not adj C) => B->C
+        // R1 fires again on C--D (B->C, B not adj D) => C->D
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:A, 1:B, 2:X, 3:C, 4:D
+        let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+        b.add_edge(0, 1, d).unwrap(); // A -> B
+        b.add_edge(2, 1, d).unwrap(); // X -> B (v-structure with A at B)
+        b.add_edge(1, 3, d).unwrap(); // B -> C
+        b.add_edge(3, 4, d).unwrap(); // C -> D
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // Both B->C and C->D should be oriented by cascading R1
+        assert_eq!(cpdag.parents_of(3), vec![1]); // C has parent B
+        assert_eq!(cpdag.parents_of(4), vec![3]); // D has parent C
+        assert_eq!(cpdag.children_of(1), vec![3]); // B has child C
+        assert_eq!(cpdag.children_of(3), vec![4]); // C has child D
+    }
+
+    #[test]
+    fn dag_to_cpdag_meek_r3_two_nonadj_parents() {
+        // pgmpy test case 9 (Bang 2024):
+        // DAG: B->D, C->D, D->A, C->A
+        // V-structures: B->D<-C (B and C non-adjacent)
+        // After v-structure: B->D<-C, D--A, A--C
+        // R3: A--D with parents C->D, B->D non-adjacent, A--C (but not A--B)
+        //     => does NOT fire (need A adj to both C and B undirected)
+        // Actually R1: C->D, D--A, C not adj A? C IS adj A. So R1 doesn't fire for C->D, D--A.
+        //   B->D, D--A, B not adj A => R1 fires: D->A
+        // Then R1 again: D->A, A--C, D not adj C? D IS adj C. So check B->D, ... no.
+        //   Actually for A--C: D->A, D not adj C? D IS adj C (D<-C). So R1 doesn't fire.
+        // So result: B->D<-C, D->A, A--C? But wait C->A in the DAG. Let me reconsider.
+        //
+        // Actually the CPDAG of B->D<-C, D->A, C->A:
+        //   Skeleton: B-D, C-D, D-A, C-A
+        //   V-structure: B->D<-C (B,C non-adj)
+        //   R1: B->D, D--A, B not adj A => D->A
+        //   Now for C--A: any parent of A not adj to C? D->A, and D adj C (yes, D<-C). So R1 doesn't fire.
+        //   R2: C--A, is there w: C->w->A? C->D->A. Yes! So R2 fires: C->A.
+        //
+        // So this is actually an R1+R2 combo. Let me construct a proper R3 test.
+        //
+        // R3: a--b and ∃ c,d: c->b, d->b, c !~ d, a--c, a--d => a->b
+        // Need: node b with two parents c,d that are non-adjacent, and a node a
+        // that is undirected-adjacent to b, c, and d.
+        //
+        // DAG: C->B<-D (v-structure, C and D non-adj), A->B, A->C, A->D
+        // Skeleton: C-B, D-B, A-B, A-C, A-D
+        // V-structure at B: C->B<-D
+        // A is adjacent to C and D, so A->B is NOT a v-structure.
+        // After v-structures: C->B<-D, A--B, A--C, A--D
+        // R3: A--B, parents of B = {C, D}, C not adj D, A--C, A--D => A->B
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:A, 1:B, 2:C, 3:D
+        let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+        b.add_edge(2, 1, d).unwrap(); // C -> B
+        b.add_edge(3, 1, d).unwrap(); // D -> B
+        b.add_edge(0, 1, d).unwrap(); // A -> B
+        b.add_edge(0, 2, d).unwrap(); // A -> C
+        b.add_edge(0, 3, d).unwrap(); // A -> D
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // C->B and D->B from v-structure, A->B from R3
+        assert!(cpdag.parents_of(1).contains(&0)); // A is parent of B
+        assert!(cpdag.parents_of(1).contains(&2)); // C is parent of B
+        assert!(cpdag.parents_of(1).contains(&3)); // D is parent of B
+                                                   // A--C and A--D should remain undirected
+        assert!(cpdag.neighbors_of(0).contains(&2)); // A--C undirected
+        assert!(cpdag.neighbors_of(0).contains(&3)); // A--D undirected
+    }
+
+    #[test]
+    fn dag_to_cpdag_meek_r4_directed_path() {
+        // R4: a--b and there exists a directed path a => b => orient a->b
+        // DAG: A->C, C->D, D->B, A->B
+        // We need A->C->D->B to be compelled and A--B undirected, so R4 orients A->B.
+        //
+        // Add v-structure at C: X->C<-A (X not adj A)
+        // Then R1 cascades: A->C, C--D (X not adj D) => C->D; C->D, D--B (X not adj B?)
+        // Actually let me be more careful.
+        //
+        // DAG: X->C<-A, C->D, D->B, A->B, A->D
+        // Skeleton: X-C, A-C, C-D, D-B, A-B, A-D
+        // V-structure at C: X->C<-A (X not adj A ✓)
+        // After v-structures: X->C<-A, C--D, D--B, A--B, A--D
+        // R1: A->C, C--D, A adj D? Yes (A--D). So R1 doesn't fire for A->C, C--D.
+        //     X->C, C--D, X adj D? No. So R1 fires: C->D.
+        // Now: C->D, D--B, C adj B? No. So R1 fires: D->B.
+        // Now: D->B, B--A, D adj A? Yes (A--D). So R1 doesn't fire for D->B, B--A.
+        // R2: A--B, is there w: A->w->B? A->C->...->B (not direct). No direct A->w->B.
+        //     A--D, is there w: A->w->D? A->C->D. Yes! So R2 fires: A->D.
+        // Now: A->D, D->B already directed.
+        // R2 again: A--B, A->D->B? Yes! So R2 fires: A->B.
+        //
+        // Hmm, that's R2 not R4. Let me construct a proper R4.
+        //
+        // R4 needs: a--b with directed path a=>b but no single intermediate w with a->w->b.
+        // That means the directed path has length >= 3.
+        //
+        // DAG: A->C1, C1->C2, C2->B, A->B
+        // Need C1->C2 and C2->B to be compelled but no direct A->w->B.
+        //
+        // Use v-structure at C1: X->C1<-A
+        // Skeleton: X-C1, A-C1, C1-C2, C2-B, A-B
+        // V-structure: X->C1<-A
+        // R1: X->C1, C1--C2, X not adj C2 => C1->C2
+        //     C1->C2, C2--B, C1 not adj B => C2->B
+        //     A->C1, C1--C2, A not adj C2 => C1->C2 (already done)
+        // Now: A--B. Directed path A->C1->C2->B exists.
+        // R2: A--B, A->w->B? A has child C1, C1->B? No. So R2 doesn't apply.
+        // R4: A--B, directed path A->C1->C2->B => A->B. ✓
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:A, 1:C1, 2:C2, 3:B, 4:X
+        let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+        b.add_edge(4, 1, d).unwrap(); // X -> C1
+        b.add_edge(0, 1, d).unwrap(); // A -> C1 (v-structure at C1 with X)
+        b.add_edge(1, 2, d).unwrap(); // C1 -> C2
+        b.add_edge(2, 3, d).unwrap(); // C2 -> B
+        b.add_edge(0, 3, d).unwrap(); // A -> B
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // A->B should be oriented by R4 (directed path A->C1->C2->B)
+        assert!(cpdag.parents_of(3).contains(&0)); // A is parent of B
+        assert!(cpdag.parents_of(3).contains(&2)); // C2 is parent of B
+        assert_eq!(cpdag.children_of(0), vec![1, 3]); // A has children C1, B
+    }
+
+    #[test]
+    fn dag_to_cpdag_no_rule_fires_edges_stay_undirected() {
+        // pgmpy test case 3: A->B, D->C with B--C.
+        // DAG: A->B, B->C, D->C, but A adj B, D adj C.
+        // Wait, we need a DAG where the CPDAG has some undirected edges that
+        // no Meek rule orients.
+        //
+        // Simple: a chain A->B->C. Equivalence class: A--B--C.
+        // No v-structures, so all edges are undirected in the CPDAG.
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(3, true, &reg);
+        b.add_edge(0, 1, d).unwrap(); // A -> B
+        b.add_edge(1, 2, d).unwrap(); // B -> C
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // All edges should be undirected
+        assert!(cpdag.parents_of(0).is_empty());
+        assert!(cpdag.parents_of(1).is_empty());
+        assert!(cpdag.parents_of(2).is_empty());
+        assert!(cpdag.children_of(0).is_empty());
+        assert!(cpdag.children_of(1).is_empty());
+        assert!(cpdag.children_of(2).is_empty());
+        // But neighbors should exist
+        assert_eq!(cpdag.neighbors_of(0), &[1]);
+        assert_eq!(cpdag.neighbors_of(1), &[0, 2]);
+        assert_eq!(cpdag.neighbors_of(2), &[1]);
+    }
+
+    #[test]
+    fn dag_to_cpdag_larger_graph_multiple_rules() {
+        // A graph where multiple Meek rules fire in sequence.
+        // DAG: X->W<-A (v-structure), W->B<-Y (v-structure), A->B, A->Y
+        // This is the existing R2 test. Let's do a bigger one.
+        //
+        // DAG with 6 nodes combining v-structures and cascading rules:
+        // V1->X<-V2 (v-structure at X)
+        // X->Y, X->Z, Y->Z (no v-structure at Y or Z since X adj to all)
+        // After v-structures: V1->X<-V2, X--Y, X--Z, Y--Z
+        // R1: V1->X, X--Y, V1 not adj Y => X->Y
+        //     V1->X, X--Z, V1 not adj Z => X->Z
+        // Now X->Y, X->Z: Y--Z, check rules.
+        // R2: Y--Z, Y->w->Z? No. Z->w->Y? No.
+        // R3: Y--Z, parents of Z = {X}. Only one parent, need two. Doesn't fire.
+        // So Y--Z stays undirected.
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:V1, 1:X, 2:V2, 3:Y, 4:Z
+        let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+        b.add_edge(0, 1, d).unwrap(); // V1 -> X
+        b.add_edge(2, 1, d).unwrap(); // V2 -> X (v-structure)
+        b.add_edge(1, 3, d).unwrap(); // X -> Y
+        b.add_edge(1, 4, d).unwrap(); // X -> Z
+        b.add_edge(3, 4, d).unwrap(); // Y -> Z
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // V1->X<-V2 compelled (v-structure)
+        assert!(cpdag.parents_of(1).contains(&0));
+        assert!(cpdag.parents_of(1).contains(&2));
+        // X->Y and X->Z compelled by R1
+        assert!(cpdag.children_of(1).contains(&3));
+        assert!(cpdag.children_of(1).contains(&4));
+        // Y--Z stays undirected
+        assert!(cpdag.neighbors_of(3).contains(&4));
+        assert!(cpdag.neighbors_of(4).contains(&3));
+        assert!(!cpdag.parents_of(4).contains(&3));
+        assert!(!cpdag.children_of(3).contains(&4));
+    }
+
+    #[test]
+    fn dag_to_cpdag_isolated_nodes_preserved() {
+        // DAG with isolated nodes: should still work
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+        b.add_edge(0, 2, d).unwrap(); // A -> C
+        b.add_edge(1, 2, d).unwrap(); // B -> C (v-structure with A)
+                                      // nodes 3, 4 are isolated
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        assert_eq!(cpdag.n(), 5);
+        assert_eq!(cpdag.parents_of(2), vec![0, 1]); // v-structure preserved
+        assert!(cpdag.neighbors_of(3).is_empty());
+        assert!(cpdag.neighbors_of(4).is_empty());
+    }
+
+    #[test]
+    fn dag_to_cpdag_single_edge() {
+        // Single edge A->B: CPDAG is A--B
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(2, true, &reg);
+        b.add_edge(0, 1, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        assert!(cpdag.parents_of(0).is_empty());
+        assert!(cpdag.parents_of(1).is_empty());
+        assert_eq!(cpdag.neighbors_of(0), &[1]);
+        assert_eq!(cpdag.neighbors_of(1), &[0]);
+    }
+
+    #[test]
+    fn dag_to_cpdag_meek_r1_orients_b_to_c() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(2, true, &reg);
+        b.add_edge(0, 1, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        assert!(cpdag.parents_of(0).is_empty());
+        assert!(cpdag.parents_of(1).is_empty());
+        assert_eq!(cpdag.neighbors_of(0), &[1]);
+        assert_eq!(cpdag.neighbors_of(1), &[0]);
+    }
+
+    #[test]
+    fn dag_to_cpdag_complete_dag_all_undirected() {
+        // Complete DAG on 3 nodes: A->B, A->C, B->C
+        // No v-structures (all pairs adjacent), so CPDAG is fully undirected
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(3, true, &reg);
+        b.add_edge(0, 1, d).unwrap(); // A -> B
+        b.add_edge(0, 2, d).unwrap(); // A -> C
+        b.add_edge(1, 2, d).unwrap(); // B -> C
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // All edges undirected (complete graph = single equivalence class)
+        for i in 0..3u32 {
+            assert!(cpdag.parents_of(i).is_empty());
+            assert!(cpdag.children_of(i).is_empty());
+        }
+        assert_eq!(cpdag.neighbors_of(0), &[1, 2]);
+        assert_eq!(cpdag.neighbors_of(1), &[0, 2]);
+        assert_eq!(cpdag.neighbors_of(2), &[0, 1]);
+    }
+
+    #[test]
+    fn dag_to_cpdag_r2_directed_path_through_intermediate() {
+        // R2: a--b and ∃ w: a->w->b => a->b
+        // pcalg example: A->B, B->C with A--C.
+        // Need A->B and B->C compelled first.
+        //
+        // DAG: X->B<-A (v-structure at B), B->C, Y->C<-B (v-structure at C), A->C
+        // Skeleton: X-B, A-B, B-C, Y-C, A-C
+        // V-structures: X->B<-A, Y->C<-B (A adj B and B adj C, but X not adj A, Y not adj B)
+        // Wait, X->B<-A: X not adj A? Need to ensure that. Yes, no edge X-A.
+        //       Y->C<-B: Y not adj B? Need to ensure that. Yes, no edge Y-B.
+        // After v-structures: X->B<-A, Y->C<-B
+        // A--C is undirected. R2: A--C, A->B->C? Yes! A->B and B->C. So R2: A->C.
+        // a -> b <- d, and b -> c in the DAG.
+        // R1 should orient b -- c into b -> c after v-structure orientation at b.
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+        b.add_edge(0, 1, d).unwrap();
+        b.add_edge(2, 1, d).unwrap();
+        b.add_edge(1, 3, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        assert_eq!(cpdag.parents_of(3), vec![1]);
+        assert_eq!(cpdag.children_of(1), vec![3]);
+    }
+
+    #[test]
+    fn dag_to_cpdag_meek_r2_orients_a_to_b() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:A, 1:B, 2:C, 3:X, 4:Y
+        let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+        b.add_edge(3, 1, d).unwrap(); // X -> B
+        b.add_edge(0, 1, d).unwrap(); // A -> B (v-structure at B with X)
+        b.add_edge(1, 2, d).unwrap(); // B -> C
+        b.add_edge(4, 2, d).unwrap(); // Y -> C (v-structure at C with B)
+        b.add_edge(0, 2, d).unwrap(); // A -> C
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // A->C should be oriented by R2 (path A->B->C)
+        assert!(cpdag.parents_of(2).contains(&0)); // A is parent of C
+        assert!(cpdag.parents_of(2).contains(&1)); // B is parent of C
+        assert!(cpdag.parents_of(2).contains(&4)); // Y is parent of C
+                                                   // Construct a DAG where:
+                                                   // - a -> w is compelled via v-structure at w (x -> w <- a)
+                                                   // - w -> b is compelled via v-structure at b (w -> b <- y)
+                                                   // - a -> b is present but not initially compelled (a adjacent to w and y)
+                                                   // R2 then orients a -- b into a -> b.
+        let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+        // a=0, w=1, x=2, b=3, y=4
+        b.add_edge(0, 1, d).unwrap(); // a -> w
+        b.add_edge(2, 1, d).unwrap(); // x -> w
+        b.add_edge(1, 3, d).unwrap(); // w -> b
+        b.add_edge(0, 3, d).unwrap(); // a -> b (candidate to be oriented by R2)
+        b.add_edge(4, 3, d).unwrap(); // y -> b
+        b.add_edge(0, 4, d).unwrap(); // a adjacent y (prevents a->b v-structure orientation)
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        assert_eq!(cpdag.parents_of(3), vec![0, 1, 4]);
     }
 
     // ── Latent projection tests ──────────────────────────────────────────────
@@ -948,5 +1185,318 @@ mod tests {
 
         // X has no spouses (X is not a child of L, so doesn't share L as ancestor)
         assert!(admg.spouses_of(0).is_empty());
+    }
+
+    #[test]
+    fn latent_project_triggers_sibling_to_child_projection() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:L0, 1:L1, 2:X, 3:Y
+        // L0 -> L1, L0 -> X, L1 -> Y, project out L0 and L1.
+        // After eliminating L0, we get L1 <-> X.
+        // Eliminating L1 then adds X <-> Y via sibling-to-child projection (step 2).
+        let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+        b.add_edge(0, 1, d).unwrap();
+        b.add_edge(0, 2, d).unwrap();
+        b.add_edge(1, 3, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let admg = dag.latent_project(&[0, 1]).unwrap();
+        assert_eq!(admg.n(), 2);
+        assert_eq!(admg.spouses_of(0), &[1]);
+        assert_eq!(admg.spouses_of(1), &[0]);
+    }
+
+    #[test]
+    fn latent_project_marks_parallel_when_parent_and_spouse_overlap() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:Y, 1:X, 2:L1, 3:L2
+        // Y -> L1 -> X gives Y -> X after projection.
+        // L2 -> Y and L2 -> X gives Y <-> X after projection.
+        // Result has parent/spouse overlap on X, so simple=false.
+        let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+        b.add_edge(0, 2, d).unwrap();
+        b.add_edge(2, 1, d).unwrap();
+        b.add_edge(3, 0, d).unwrap();
+        b.add_edge(3, 1, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let admg = dag.latent_project(&[2, 3]).unwrap();
+        assert_eq!(admg.parents_of(1), &[0]);
+        assert_eq!(admg.spouses_of(1), &[0]);
+        assert!(!admg.core_ref().simple);
+    }
+
+    #[test]
+    fn latent_project_parent_spouse_overlap_hits_parent_spouse_scan_branch() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:B, 1:A, 2:L1, 3:L2
+        // A -> L1 -> B   gives A -> B after projection.
+        // L2 -> A and L2 -> B gives A <-> B after projection.
+        // For node B (old index 0), overlap appears in parents/spouses (no children),
+        // which drives the parent/spouse overlap branch in the parallel-edge scan.
+        let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+        b.add_edge(1, 2, d).unwrap(); // A -> L1
+        b.add_edge(2, 0, d).unwrap(); // L1 -> B
+        b.add_edge(3, 1, d).unwrap(); // L2 -> A
+        b.add_edge(3, 0, d).unwrap(); // L2 -> B
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let admg = dag.latent_project(&[2, 3]).unwrap();
+        assert_eq!(admg.parents_of(0), &[1]);
+        assert_eq!(admg.spouses_of(0), &[1]);
+        assert!(!admg.core_ref().simple);
+    }
+
+    #[test]
+    fn to_cpdag_and_latent_project_with_multiple_registry_specs() {
+        let mut reg = EdgeRegistry::new();
+        // Add non-builtin directed/undirected/bidirected specs before builtins.
+        reg.register(EdgeSpec {
+            glyph: "d1".to_string(),
+            tail: Mark::Tail,
+            head: Mark::Arrow,
+            symmetric: false,
+            class: EdgeClass::Directed,
+        })
+        .unwrap();
+        reg.register(EdgeSpec {
+            glyph: "u1".to_string(),
+            tail: Mark::Tail,
+            head: Mark::Tail,
+            symmetric: true,
+            class: EdgeClass::Undirected,
+        })
+        .unwrap();
+        reg.register(EdgeSpec {
+            glyph: "b1".to_string(),
+            tail: Mark::Arrow,
+            head: Mark::Arrow,
+            symmetric: true,
+            class: EdgeClass::Bidirected,
+        })
+        .unwrap();
+        reg.register_builtins().unwrap();
+        // Add more non-builtin specs after builtins too.
+        reg.register(EdgeSpec {
+            glyph: "d2".to_string(),
+            tail: Mark::Tail,
+            head: Mark::Arrow,
+            symmetric: false,
+            class: EdgeClass::Directed,
+        })
+        .unwrap();
+        reg.register(EdgeSpec {
+            glyph: "u2".to_string(),
+            tail: Mark::Tail,
+            head: Mark::Tail,
+            symmetric: true,
+            class: EdgeClass::Undirected,
+        })
+        .unwrap();
+        reg.register(EdgeSpec {
+            glyph: "b2".to_string(),
+            tail: Mark::Arrow,
+            head: Mark::Arrow,
+            symmetric: true,
+            class: EdgeClass::Bidirected,
+        })
+        .unwrap();
+
+        let d = reg.code_of("-->").unwrap();
+        let mut b = GraphBuilder::new_with_registry(3, true, &reg);
+        b.add_edge(0, 1, d).unwrap();
+        b.add_edge(1, 2, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        assert_eq!(cpdag.n(), 3);
+
+        let admg = dag.latent_project(&[1]).unwrap();
+        assert_eq!(admg.n(), 2);
+    }
+
+    #[test]
+    fn dag_to_cpdag_exhaustive_small_dags_do_not_error() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let pairs: [(u32, u32); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
+        // Per pair state:
+        // 0 none, 1 a->b, 2 b->a
+        let states = 3usize;
+        let total = states.pow(pairs.len() as u32);
+        let mut seen = 0usize;
+
+        for idx in 0..total {
+            let mut code = idx;
+            let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+            for &(a, c) in &pairs {
+                match code % states {
+                    1 => {
+                        b.add_edge(a, c, d).unwrap();
+                    }
+                    2 => {
+                        b.add_edge(c, a, d).unwrap();
+                    }
+                    _ => {}
+                }
+                code /= states;
+            }
+
+            let core = Arc::new(b.finalize().unwrap());
+            let Ok(dag) = Dag::new(core) else {
+                continue;
+            };
+            let _ = dag.to_cpdag().unwrap();
+            seen += 1;
+        }
+
+        assert!(seen > 0);
+    }
+
+    #[test]
+    fn dag_to_cpdag_exhaustive_five_node_dags_do_not_error() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let pairs: [(u32, u32); 10] = [
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (0, 4),
+            (1, 2),
+            (1, 3),
+            (1, 4),
+            (2, 3),
+            (2, 4),
+            (3, 4),
+        ];
+        let states = 3usize; // 0 none, 1 a->b, 2 b->a
+        let total = states.pow(pairs.len() as u32);
+        let mut seen = 0usize;
+
+        for idx in 0..total {
+            let mut code = idx;
+            let mut b = GraphBuilder::new_with_registry(5, true, &reg);
+            for &(a, c) in &pairs {
+                match code % states {
+                    1 => {
+                        b.add_edge(a, c, d).unwrap();
+                    }
+                    2 => {
+                        b.add_edge(c, a, d).unwrap();
+                    }
+                    _ => {}
+                }
+                code /= states;
+            }
+
+            let core = Arc::new(b.finalize().unwrap());
+            let Ok(dag) = Dag::new(core) else {
+                continue;
+            };
+            let _ = dag.to_cpdag().unwrap();
+            seen += 1;
+        }
+
+        assert!(seen > 0);
+    }
+
+    #[test]
+    fn latent_project_self_loop_skipped_when_parent_is_also_child() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        // 0:L1, 1:L2, 2:X
+        let mut b = GraphBuilder::new_with_registry(3, true, &reg);
+        b.add_edge(0, 1, d).unwrap(); // L1 -> L2
+        b.add_edge(0, 2, d).unwrap(); // L1 -> X
+        b.add_edge(1, 2, d).unwrap(); // L2 -> X
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let admg = dag.latent_project(&[0, 1]).unwrap();
+        // Only X remains
+        assert_eq!(admg.n(), 1);
+        assert!(admg.spouses_of(0).is_empty());
+        assert!(admg.children_of(0).is_empty());
+    }
+
+    #[test]
+    fn to_cpdag_has_dir_path_src_eq_tgt() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        let mut b = GraphBuilder::new_with_registry(4, true, &reg);
+        b.add_edge(0, 1, d).unwrap();
+        b.add_edge(2, 1, d).unwrap();
+        b.add_edge(1, 3, d).unwrap();
+        b.add_edge(0, 3, d).unwrap();
+        let dag = Dag::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        let cpdag = dag.to_cpdag().unwrap();
+        // 0->3 should be directed (oriented by R4)
+        assert!(cpdag.children_of(0).contains(&3));
+        assert!(cpdag.parents_of(3).contains(&0));
+        // 0->1 directed (v-structure)
+        assert!(cpdag.children_of(0).contains(&1));
+        // 2->1 directed (v-structure)
+        assert!(cpdag.parents_of(1).contains(&2));
+        // 1->3 directed (R1)
+        assert!(cpdag.children_of(1).contains(&3));
+    }
+
+    #[test]
+    fn dag_to_cpdag_randomized_larger_dags_do_not_error() {
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let d = reg.code_of("-->").unwrap();
+
+        fn next_u64(state: &mut u64) -> u64 {
+            // Deterministic LCG for stable test behavior.
+            *state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            *state
+        }
+
+        let n = 7u32;
+        let mut seed = 0xC0FFEE_u64;
+        let mut seen = 0usize;
+
+        for _ in 0..3000 {
+            let mut order: Vec<u32> = (0..n).collect();
+            for i in (1..order.len()).rev() {
+                let j = (next_u64(&mut seed) as usize) % (i + 1);
+                order.swap(i, j);
+            }
+
+            let mut b = GraphBuilder::new_with_registry(n, true, &reg);
+            for i in 0..order.len() {
+                for j in (i + 1)..order.len() {
+                    // Forward-only edges in randomized order keep the graph acyclic.
+                    if (next_u64(&mut seed) & 3) == 0 {
+                        b.add_edge(order[i], order[j], d).unwrap();
+                    }
+                }
+            }
+
+            let core = Arc::new(b.finalize().unwrap());
+            let dag = Dag::new(core).unwrap();
+            let _ = dag.to_cpdag().unwrap();
+            seen += 1;
+        }
+
+        assert_eq!(seen, 3000);
     }
 }

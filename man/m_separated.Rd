@@ -17,9 +17,9 @@ m_separated(
 \arguments{
 \item{cg}{A \code{caugi} object of class AG, ADMG, or DAG.}
 
-\item{X, Y, Z}{Node selectors: character vector of names, unquoted expression
-(supports \code{+} and \code{c()}), or \code{NULL}. Use \verb{*_index} to pass 1-based indices.
-If \code{Z} is \code{NULL} or missing, no nodes are conditioned on.}
+\item{X, Y, Z}{Character vectors of node names, or \code{NULL}. Use \verb{*_index} to
+pass 1-based indices. If \code{Z} is \code{NULL} or missing, no nodes are conditioned
+on.}
 
 \item{X_index, Y_index, Z_index}{Optional numeric 1-based indices (exclusive
 with \code{X},\code{Y},\code{Z} respectively).}
@@ -63,12 +63,15 @@ Other queries:
 \code{\link{is_dag}()},
 \code{\link{is_empty_caugi}()},
 \code{\link{is_mag}()},
+\code{\link{is_mpdag}()},
 \code{\link{is_pdag}()},
+\code{\link{is_simple}()},
 \code{\link{is_ug}()},
 \code{\link{markov_blanket}()},
 \code{\link{neighbors}()},
 \code{\link{nodes}()},
 \code{\link{parents}()},
+\code{\link{posteriors}()},
 \code{\link{same_nodes}()},
 \code{\link{spouses}()},
 \code{\link{subgraph}()},

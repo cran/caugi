@@ -469,7 +469,10 @@ test_that("exogenize works", {
     B %-->% C,
     class = "DAG"
   )
-  expect_equal(edges(exogenized_cg), edges(cg_expected))
+  # Compare edges irrespective of order
+  actual <- edges(exogenized_cg)[order(from, to, edge)]
+  expected <- edges(cg_expected)[order(from, to, edge)]
+  expect_equal(actual, expected)
   expect_setequal(nodes(exogenized_cg)$name, nodes(cg_expected)$name)
 })
 
@@ -611,4 +614,323 @@ test_that("Marginalization and conditioning work", {
     cond_vars = c("S", "L1"),
     marg_vars = c("L1")
   ))
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────── DAG from PDAG ──────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("dag_from_pdag converts a valid PDAG to a DAG", {
+  PDAG <- caugi(
+    A %---% B,
+    B %---% C,
+    class = "PDAG"
+  )
+  DAG <- dag_from_pdag(PDAG)
+  edges_DAG <- edges(DAG)
+  expect_true(all(edges_DAG$edge == "-->"))
+})
+
+test_that("dag_from_pdag errors on non-PDAG input", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    class = "DAG"
+  )
+  expect_error(dag_from_pdag(cg), "Input must be a caugi PDAG graph")
+})
+
+test_that("dag_from_pdag errors if PDAG cannot be extended to a DAG", {
+  PDAG <- caugi(
+    A %---% B,
+    A %---% D,
+    B %---% C,
+    C %---% D,
+    class = "PDAG"
+  )
+  expect_error(dag_from_pdag(PDAG), "PDAG cannot be extended to a DAG")
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────── Meek closure ───────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("meek_closure orients compelled edges and returns an MPDAG", {
+  check_oriented <- function(g, from, to) {
+    expect_true(to %in% children(g, from))
+    if (is_dag(g)) {
+      return()
+    } else {
+      und <- neighbors(g, from, mode = "undirected")
+      if (is.null(und)) {
+        und <- character(0)
+      }
+      expect_false(to %in% und)
+    }
+  }
+
+  # R1: A -> B, C -> B, B -- D, and C !~ D  =>  B -> D
+  g_r1 <- caugi(
+    A %-->% B,
+    C %-->% B,
+    B %---% D,
+    A %---% D,
+    class = "PDAG"
+  )
+  c_r1 <- meek_closure(g_r1)
+  check_oriented(c_r1, "B", "D")
+  expect_true(is_mpdag(c_r1))
+
+  # R2: A -- B and A -> C -> B  =>  A -> B
+  g_r2 <- caugi(
+    A %---% B,
+    A %-->% C,
+    C %-->% B,
+    class = "PDAG"
+  )
+  c_r2 <- meek_closure(g_r2)
+  check_oriented(c_r2, "A", "B")
+  expect_true(is_mpdag(c_r2))
+
+  # R3: A -- B, C -> B, D -> B, C !~ D, A -- C, A -- D  =>  A -> B
+  g_r3 <- caugi(
+    A %---% B,
+    C %-->% B,
+    D %-->% B,
+    A %---% C,
+    A %---% D,
+    class = "PDAG"
+  )
+  c_r3 <- meek_closure(g_r3)
+  check_oriented(c_r3, "A", "B")
+  expect_true(is_mpdag(c_r3))
+
+  # R4: A -- B and A => B through A -> C -> D -> B  =>  A -> B
+  g_r4 <- caugi(
+    A %---% B,
+    A %-->% C,
+    C %-->% D,
+    A %---% D,
+    D %-->% B,
+    class = "PDAG"
+  )
+  c_r4 <- meek_closure(g_r4)
+  check_oriented(c_r4, "A", "B")
+  expect_true(is_mpdag(c_r4))
+})
+
+test_that("meek_closure is idempotent and preserves node names", {
+  g <- caugi(
+    B %---% A,
+    B %---% D,
+    C %-->% E,
+    B %-->% E,
+    D %-->% F,
+    E %-->% F,
+    class = "PDAG"
+  )
+
+  c1 <- meek_closure(g)
+  c2 <- meek_closure(c1)
+
+  expect_equal(c1@graph_class, "PDAG")
+  expect_equal(nodes(c1)$name, nodes(g)$name)
+  expect_equal(edges(c1), edges(c2))
+})
+
+test_that("meek_closure errors on non-PDAG-compatible graphs", {
+  g <- caugi(A %o->% B, class = "UNKNOWN")
+  expect_error(
+    meek_closure(g),
+    "meek_closure\\(\\) can only be applied to PDAGs\\."
+  )
+})
+
+test_that("meek_closure matches causal-learn style multi-rule regression", {
+  # Skeleton: A-B-C, A->D<-C, B-D, D-E, C-E
+  # Meek progression:
+  #   R1: D -> E
+  #   R2: C -> E
+  #   R3: B -> D
+  g <- caugi(
+    A %---% B,
+    B %---% C,
+    A %-->% D,
+    C %-->% D,
+    B %---% D,
+    D %---% E,
+    C %---% E,
+    class = "PDAG"
+  )
+
+  g_closed <- meek_closure(g)
+
+  expected <- caugi(
+    A %---% B,
+    B %---% C,
+    A %-->% D,
+    B %-->% D,
+    C %-->% D,
+    D %-->% E,
+    C %-->% E,
+    class = "PDAG"
+  )
+
+  norm_edges <- function(x) edges(x)[order(from, to, edge)]
+  expect_equal(norm_edges(g_closed), norm_edges(expected))
+
+  # Invariants inspired by CPDAG/Meek references.
+  expect_equal(
+    norm_edges(skeleton(g_closed)),
+    norm_edges(skeleton(g))
+  )
+  expect_true(is_acyclic(g_closed, force_check = TRUE))
+  expect_true(is_mpdag(g_closed))
+})
+
+test_that("dag_from_pdag preserves directed edges in mixed extension cases", {
+  pdag <- caugi(
+    A %-->% B,
+    C %-->% B,
+    C %---% D,
+    D %---% A,
+    class = "PDAG"
+  )
+
+  dag <- dag_from_pdag(pdag)
+  ed <- edges(dag)
+  has_dir <- function(from, to) {
+    any(ed$from == from & ed$to == to & ed$edge == "-->")
+  }
+
+  expect_true(is_dag(dag))
+  expect_true(has_dir("A", "B"))
+  expect_true(has_dir("C", "B"))
+  expect_true(xor(has_dir("A", "D"), has_dir("D", "A")))
+  expect_true(xor(has_dir("C", "D"), has_dir("D", "C")))
+  expect_false(has_dir("A", "D") && has_dir("C", "D"))
+  expect_equal(nrow(ed), 4L)
+})
+
+test_that("dag_from_pdag orients each undirected edge exactly once", {
+  pdag <- caugi(
+    A %-->% C,
+    B %-->% C,
+    A %---% D,
+    class = "PDAG"
+  )
+
+  dag <- dag_from_pdag(pdag)
+  ed <- edges(dag)
+  has_dir <- function(from, to) {
+    any(ed$from == from & ed$to == to & ed$edge == "-->")
+  }
+
+  expect_true(has_dir("A", "C"))
+  expect_true(has_dir("B", "C"))
+  expect_true(xor(has_dir("A", "D"), has_dir("D", "A")))
+  expect_false(any(ed$edge == "---"))
+  expect_equal(nrow(ed), 3L)
+})
+
+test_that("pgmpy Meek fixtures: rs_to_cpdag on PDAG applies Meek closure", {
+  cpdag_from_pdag <- function(pdag) {
+    cp_session <- rs_to_cpdag(pdag@session)
+    .session_to_caugi(cp_session, node_names = nodes(pdag)$name)
+  }
+  edge_set <- function(g) {
+    ed <- edges(g)
+    sort(paste(ed$from, ed$edge, ed$to))
+  }
+
+  # Case 1 (pgmpy test_pdag_to_cpdag): A->B and B-C => B->C
+  pdag1 <- caugi(A %-->% B, B %---% C, class = "PDAG")
+  cpdag1 <- cpdag_from_pdag(pdag1)
+  expect_setequal(
+    edge_set(cpdag1),
+    edge_set(caugi(A %-->% B, B %-->% C, class = "PDAG"))
+  )
+
+  # Case 2: orientation propagates along B-C-D.
+  pdag2 <- caugi(A %-->% B, B %---% C, C %---% D, class = "PDAG")
+  cpdag2 <- cpdag_from_pdag(pdag2)
+  expect_setequal(
+    edge_set(cpdag2),
+    edge_set(caugi(A %-->% B, B %-->% C, C %-->% D, class = "PDAG"))
+  )
+
+  # Case 3 (pgmpy fixture): keep B-C undirected.
+  pdag3 <- caugi(A %-->% B, D %-->% C, B %---% C, class = "PDAG")
+  cpdag3 <- cpdag_from_pdag(pdag3)
+  expect_setequal(
+    edge_set(cpdag3),
+    edge_set(pdag3)
+  )
+
+  # Case 4 (pgmpy fixture): extra parent evidence orients B->C.
+  pdag4 <- caugi(
+    A %-->% B,
+    D %-->% C,
+    D %-->% B,
+    B %---% C,
+    class = "PDAG"
+  )
+  cpdag4 <- cpdag_from_pdag(pdag4)
+  expect_setequal(
+    edge_set(cpdag4),
+    edge_set(caugi(A %-->% B, D %-->% C, D %-->% B, B %-->% C, class = "PDAG"))
+  )
+
+  # Case 5 (rule-2 style): A->B->C and A-C => A->C.
+  pdag5 <- caugi(A %-->% B, B %-->% C, A %---% C, class = "PDAG")
+  cpdag5 <- cpdag_from_pdag(pdag5)
+  expect_setequal(
+    edge_set(cpdag5),
+    edge_set(caugi(A %-->% B, B %-->% C, A %-->% C, class = "PDAG"))
+  )
+})
+
+test_that("condition_marginalize and helper branches are covered", {
+  cg_ug <- caugi(A %o->% B, class = "UNKNOWN")
+  expect_error(
+    condition_marginalize(cg_ug, cond_vars = "A"),
+    "`cg` must be an AG for `condition_marginalize\\(\\)`"
+  )
+
+  cg <- caugi(A %-->% B, class = "DAG")
+  out_trivial <- condition_marginalize(cg, marg_vars = "B")
+  expect_equal(out_trivial@graph_class, "AG")
+  expect_setequal(out_trivial@nodes$name, "A")
+
+  # Force non-list anteriors branch (line coverage via expected error).
+  cg2 <- caugi(A %-->% B %-->% C, class = "DAG")
+  expect_error(
+    testthat::with_mocked_bindings(
+      condition_marginalize(cg2, cond_vars = "B"),
+      anteriors = function(...) "A",
+      .package = "caugi"
+    ),
+    "must be the same length"
+  )
+
+  expect_type(
+    caugi:::.not_m_separated_for_all_subsets(
+      cg = cg2,
+      node_a = "A",
+      node_b = "C",
+      other_nodes = character(0),
+      cond_vars = character(0)
+    ),
+    "logical"
+  )
+
+  edge_rev <- caugi:::.edge_type_from_anteriors(
+    node_a = "A",
+    node_b = "B",
+    cond_vars = character(0),
+    anteriors_list = list(A = "B", B = NULL)
+  )
+  expect_identical(edge_rev$from, "B")
+  expect_identical(edge_rev$edge, "-->")
+  expect_identical(edge_rev$to, "A")
 })

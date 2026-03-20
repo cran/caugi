@@ -17,9 +17,9 @@ d_separated(
 \arguments{
 \item{cg}{A \code{caugi} object.}
 
-\item{X, Y, Z}{Node selectors: character vector of names, unquoted expression
-(supports \code{+} and \code{c()}), or \code{NULL}. Use \verb{*_index} to pass 1-based indices.
-If \code{Z} is \code{NULL} or missing, no nodes are conditioned on.}
+\item{X, Y, Z}{Character vectors of node names, or \code{NULL}. Use \verb{*_index} to
+pass 1-based indices. If \code{Z} is \code{NULL} or missing, no nodes are conditioned
+on.}
 
 \item{X_index, Y_index, Z_index}{Optional numeric 1-based indices (exclusive
 with \code{X},\code{Y},\code{Z} respectively).}
@@ -55,6 +55,7 @@ Other adjustment:
 \code{\link{all_adjustment_sets_admg}()},
 \code{\link{all_backdoor_sets}()},
 \code{\link{is_valid_adjustment_admg}()},
-\code{\link{is_valid_backdoor}()}
+\code{\link{is_valid_backdoor}()},
+\code{\link{minimal_d_separator}()}
 }
 \concept{adjustment}

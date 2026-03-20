@@ -78,6 +78,20 @@ impl GraphBuilder {
         }
     }
 
+    /// Create a new builder from an existing registry snapshot.
+    /// This is more efficient when the snapshot already exists (e.g., in GraphSession).
+    pub fn new_from_snapshot(n: u32, simple: bool, snapshot: Arc<RegistrySnapshot>) -> Self {
+        let n_us = n as usize;
+        Self {
+            n,
+            simple,
+            specs: Arc::clone(&snapshot.specs),
+            rows: vec![Vec::new(); n_us],
+            seen: HashSet::new(),
+            pair_seen: HashSet::new(),
+        }
+    }
+
     /// Add an edge to the graph.
     ///
     /// Returns a `String` error for FFI compatibility. Use `try_add_edge` for typed errors.
@@ -291,6 +305,7 @@ mod tests {
         let r = reg();
         let bad_code = 200;
         let mut b = GraphBuilder::new_with_registry(2, false, &r);
+        assert!(b.add_edge(2, 0, bad_code).is_err()); // source out of range takes precedence
         assert!(b.add_edge(0, 2, bad_code).is_err()); // node out of range takes precedence
                                                       // valid nodes but bad code
         assert!(b.add_edge(0, 1, bad_code).is_err());

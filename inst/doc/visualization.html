@@ -149,7 +149,6 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; }
 div.csl-bib-body { }
 div.csl-entry {
 clear: both;
-margin-bottom: 0em;
 }
 .hanging div.csl-entry {
 margin-left:2em;
@@ -395,10 +394,10 @@ types, it uses the Fruchterman-Reingold force-directed layout.</p>
 optimized for different use cases.</p>
 <div id="sugiyama-hierarchical-layout" class="section level3">
 <h3>Sugiyama (Hierarchical Layout)</h3>
-<p>The Sugiyama layout <span class="citation">(Sugiyama, Tagawa, and
-Toda 1981)</span> is ideal for directed acyclic graphs (DAGs). It
-arranges nodes in layers to emphasize hierarchical structure and causal
-flow from top to bottom, minimizing edge crossings.</p>
+<p>The Sugiyama layout <span class="citation">(Sugiyama et al.
+1981)</span> is ideal for directed acyclic graphs (DAGs). It arranges
+nodes in layers to emphasize hierarchical structure and causal flow from
+top to bottom, minimizing edge crossings.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Create a more complex DAG</span></span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>dag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(</span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  X1 <span class="sc">%--&gt;%</span> M1 <span class="sc">+</span> M2,</span>
@@ -773,7 +772,7 @@ and labels indicating the tier names (if provided).</p>
 <div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">plot</span>(cg_tiered, <span class="at">tiers =</span> tiers)</span></code></pre></div>
 <p><img role="img" src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
 <p>But you can customize the appearance of tier boxes using the
-<code>tier_style</code> parameter. Here, for isntance, we specify
+<code>tier_style</code> parameter. Here, for instance, we specify
 different fill colors for each tier using a vector.</p>
 <div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">plot</span>(</span>
 <span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a>  cg_tiered,</span>
@@ -1042,137 +1041,139 @@ controlling space between composed plots</li>
 </ul>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" tabindex="-1"></a><span class="co"># View all current options</span></span>
 <span id="cb43-2"><a href="#cb43-2" tabindex="-1"></a><span class="fu">caugi_options</span>()</span>
-<span id="cb43-3"><a href="#cb43-3" tabindex="-1"></a><span class="co">#&gt; $plot</span></span>
-<span id="cb43-4"><a href="#cb43-4" tabindex="-1"></a><span class="co">#&gt; $plot$spacing</span></span>
-<span id="cb43-5"><a href="#cb43-5" tabindex="-1"></a><span class="co">#&gt; [1] 1lines</span></span>
-<span id="cb43-6"><a href="#cb43-6" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-7"><a href="#cb43-7" tabindex="-1"></a><span class="co">#&gt; $plot$node_style</span></span>
-<span id="cb43-8"><a href="#cb43-8" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$fill</span></span>
-<span id="cb43-9"><a href="#cb43-9" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightgrey&quot;</span></span>
-<span id="cb43-10"><a href="#cb43-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-11"><a href="#cb43-11" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$padding</span></span>
-<span id="cb43-12"><a href="#cb43-12" tabindex="-1"></a><span class="co">#&gt; [1] 2</span></span>
+<span id="cb43-3"><a href="#cb43-3" tabindex="-1"></a><span class="co">#&gt; $use_open_graph_definition</span></span>
+<span id="cb43-4"><a href="#cb43-4" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb43-5"><a href="#cb43-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-6"><a href="#cb43-6" tabindex="-1"></a><span class="co">#&gt; $plot</span></span>
+<span id="cb43-7"><a href="#cb43-7" tabindex="-1"></a><span class="co">#&gt; $plot$spacing</span></span>
+<span id="cb43-8"><a href="#cb43-8" tabindex="-1"></a><span class="co">#&gt; [1] 1lines</span></span>
+<span id="cb43-9"><a href="#cb43-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-10"><a href="#cb43-10" tabindex="-1"></a><span class="co">#&gt; $plot$node_style</span></span>
+<span id="cb43-11"><a href="#cb43-11" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$fill</span></span>
+<span id="cb43-12"><a href="#cb43-12" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightgrey&quot;</span></span>
 <span id="cb43-13"><a href="#cb43-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-14"><a href="#cb43-14" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$size</span></span>
-<span id="cb43-15"><a href="#cb43-15" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-14"><a href="#cb43-14" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$padding</span></span>
+<span id="cb43-15"><a href="#cb43-15" tabindex="-1"></a><span class="co">#&gt; [1] 2</span></span>
 <span id="cb43-16"><a href="#cb43-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-17"><a href="#cb43-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-18"><a href="#cb43-18" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style</span></span>
-<span id="cb43-19"><a href="#cb43-19" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$arrow_size</span></span>
-<span id="cb43-20"><a href="#cb43-20" tabindex="-1"></a><span class="co">#&gt; [1] 3</span></span>
-<span id="cb43-21"><a href="#cb43-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-22"><a href="#cb43-22" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$circle_size</span></span>
-<span id="cb43-23"><a href="#cb43-23" tabindex="-1"></a><span class="co">#&gt; [1] 1.5</span></span>
+<span id="cb43-17"><a href="#cb43-17" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$size</span></span>
+<span id="cb43-18"><a href="#cb43-18" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-19"><a href="#cb43-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-20"><a href="#cb43-20" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-21"><a href="#cb43-21" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style</span></span>
+<span id="cb43-22"><a href="#cb43-22" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$arrow_size</span></span>
+<span id="cb43-23"><a href="#cb43-23" tabindex="-1"></a><span class="co">#&gt; [1] 3</span></span>
 <span id="cb43-24"><a href="#cb43-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-25"><a href="#cb43-25" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$fill</span></span>
-<span id="cb43-26"><a href="#cb43-26" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
+<span id="cb43-25"><a href="#cb43-25" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$circle_size</span></span>
+<span id="cb43-26"><a href="#cb43-26" tabindex="-1"></a><span class="co">#&gt; [1] 1.5</span></span>
 <span id="cb43-27"><a href="#cb43-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-28"><a href="#cb43-28" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-29"><a href="#cb43-29" tabindex="-1"></a><span class="co">#&gt; $plot$label_style</span></span>
-<span id="cb43-30"><a href="#cb43-30" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
+<span id="cb43-28"><a href="#cb43-28" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$fill</span></span>
+<span id="cb43-29"><a href="#cb43-29" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
+<span id="cb43-30"><a href="#cb43-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb43-31"><a href="#cb43-31" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-32"><a href="#cb43-32" tabindex="-1"></a><span class="co">#&gt; $plot$title_style</span></span>
-<span id="cb43-33"><a href="#cb43-33" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$col</span></span>
-<span id="cb43-34"><a href="#cb43-34" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
-<span id="cb43-35"><a href="#cb43-35" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-36"><a href="#cb43-36" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$fontface</span></span>
-<span id="cb43-37"><a href="#cb43-37" tabindex="-1"></a><span class="co">#&gt; [1] &quot;bold&quot;</span></span>
+<span id="cb43-32"><a href="#cb43-32" tabindex="-1"></a><span class="co">#&gt; $plot$label_style</span></span>
+<span id="cb43-33"><a href="#cb43-33" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
+<span id="cb43-34"><a href="#cb43-34" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-35"><a href="#cb43-35" tabindex="-1"></a><span class="co">#&gt; $plot$title_style</span></span>
+<span id="cb43-36"><a href="#cb43-36" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$col</span></span>
+<span id="cb43-37"><a href="#cb43-37" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
 <span id="cb43-38"><a href="#cb43-38" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-39"><a href="#cb43-39" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$fontsize</span></span>
-<span id="cb43-40"><a href="#cb43-40" tabindex="-1"></a><span class="co">#&gt; [1] 14.4</span></span>
+<span id="cb43-39"><a href="#cb43-39" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$fontface</span></span>
+<span id="cb43-40"><a href="#cb43-40" tabindex="-1"></a><span class="co">#&gt; [1] &quot;bold&quot;</span></span>
 <span id="cb43-41"><a href="#cb43-41" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-42"><a href="#cb43-42" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-43"><a href="#cb43-43" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style</span></span>
-<span id="cb43-44"><a href="#cb43-44" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$boxes</span></span>
-<span id="cb43-45"><a href="#cb43-45" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
-<span id="cb43-46"><a href="#cb43-46" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-47"><a href="#cb43-47" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$labels</span></span>
+<span id="cb43-42"><a href="#cb43-42" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$fontsize</span></span>
+<span id="cb43-43"><a href="#cb43-43" tabindex="-1"></a><span class="co">#&gt; [1] 14.4</span></span>
+<span id="cb43-44"><a href="#cb43-44" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-45"><a href="#cb43-45" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-46"><a href="#cb43-46" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style</span></span>
+<span id="cb43-47"><a href="#cb43-47" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$boxes</span></span>
 <span id="cb43-48"><a href="#cb43-48" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb43-49"><a href="#cb43-49" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-50"><a href="#cb43-50" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$fill</span></span>
-<span id="cb43-51"><a href="#cb43-51" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightsteelblue&quot;</span></span>
+<span id="cb43-50"><a href="#cb43-50" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$labels</span></span>
+<span id="cb43-51"><a href="#cb43-51" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb43-52"><a href="#cb43-52" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-53"><a href="#cb43-53" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$col</span></span>
-<span id="cb43-54"><a href="#cb43-54" tabindex="-1"></a><span class="co">#&gt; [1] &quot;transparent&quot;</span></span>
+<span id="cb43-53"><a href="#cb43-53" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$fill</span></span>
+<span id="cb43-54"><a href="#cb43-54" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightsteelblue&quot;</span></span>
 <span id="cb43-55"><a href="#cb43-55" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-56"><a href="#cb43-56" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$label_style</span></span>
-<span id="cb43-57"><a href="#cb43-57" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
+<span id="cb43-56"><a href="#cb43-56" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$col</span></span>
+<span id="cb43-57"><a href="#cb43-57" tabindex="-1"></a><span class="co">#&gt; [1] &quot;transparent&quot;</span></span>
 <span id="cb43-58"><a href="#cb43-58" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-59"><a href="#cb43-59" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$lwd</span></span>
-<span id="cb43-60"><a href="#cb43-60" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-59"><a href="#cb43-59" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$label_style</span></span>
+<span id="cb43-60"><a href="#cb43-60" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
 <span id="cb43-61"><a href="#cb43-61" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-62"><a href="#cb43-62" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$alpha</span></span>
+<span id="cb43-62"><a href="#cb43-62" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$lwd</span></span>
 <span id="cb43-63"><a href="#cb43-63" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
 <span id="cb43-64"><a href="#cb43-64" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-65"><a href="#cb43-65" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$padding</span></span>
-<span id="cb43-66"><a href="#cb43-66" tabindex="-1"></a><span class="co">#&gt; [1] 4mm</span></span>
-<span id="cb43-67"><a href="#cb43-67" tabindex="-1"></a></span>
-<span id="cb43-68"><a href="#cb43-68" tabindex="-1"></a><span class="co"># Query specific option</span></span>
-<span id="cb43-69"><a href="#cb43-69" tabindex="-1"></a><span class="fu">caugi_options</span>(<span class="st">&quot;plot&quot;</span>)</span>
-<span id="cb43-70"><a href="#cb43-70" tabindex="-1"></a><span class="co">#&gt; $plot</span></span>
-<span id="cb43-71"><a href="#cb43-71" tabindex="-1"></a><span class="co">#&gt; $plot$spacing</span></span>
-<span id="cb43-72"><a href="#cb43-72" tabindex="-1"></a><span class="co">#&gt; [1] 1lines</span></span>
-<span id="cb43-73"><a href="#cb43-73" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-74"><a href="#cb43-74" tabindex="-1"></a><span class="co">#&gt; $plot$node_style</span></span>
-<span id="cb43-75"><a href="#cb43-75" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$fill</span></span>
-<span id="cb43-76"><a href="#cb43-76" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightgrey&quot;</span></span>
-<span id="cb43-77"><a href="#cb43-77" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-78"><a href="#cb43-78" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$padding</span></span>
-<span id="cb43-79"><a href="#cb43-79" tabindex="-1"></a><span class="co">#&gt; [1] 2</span></span>
-<span id="cb43-80"><a href="#cb43-80" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-81"><a href="#cb43-81" tabindex="-1"></a><span class="co">#&gt; $plot$node_style$size</span></span>
-<span id="cb43-82"><a href="#cb43-82" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
-<span id="cb43-83"><a href="#cb43-83" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-84"><a href="#cb43-84" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-85"><a href="#cb43-85" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style</span></span>
-<span id="cb43-86"><a href="#cb43-86" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$arrow_size</span></span>
-<span id="cb43-87"><a href="#cb43-87" tabindex="-1"></a><span class="co">#&gt; [1] 3</span></span>
-<span id="cb43-88"><a href="#cb43-88" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-89"><a href="#cb43-89" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$circle_size</span></span>
-<span id="cb43-90"><a href="#cb43-90" tabindex="-1"></a><span class="co">#&gt; [1] 1.5</span></span>
-<span id="cb43-91"><a href="#cb43-91" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-92"><a href="#cb43-92" tabindex="-1"></a><span class="co">#&gt; $plot$edge_style$fill</span></span>
-<span id="cb43-93"><a href="#cb43-93" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
-<span id="cb43-94"><a href="#cb43-94" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-95"><a href="#cb43-95" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-96"><a href="#cb43-96" tabindex="-1"></a><span class="co">#&gt; $plot$label_style</span></span>
-<span id="cb43-97"><a href="#cb43-97" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
-<span id="cb43-98"><a href="#cb43-98" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-99"><a href="#cb43-99" tabindex="-1"></a><span class="co">#&gt; $plot$title_style</span></span>
-<span id="cb43-100"><a href="#cb43-100" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$col</span></span>
-<span id="cb43-101"><a href="#cb43-101" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
-<span id="cb43-102"><a href="#cb43-102" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-103"><a href="#cb43-103" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$fontface</span></span>
-<span id="cb43-104"><a href="#cb43-104" tabindex="-1"></a><span class="co">#&gt; [1] &quot;bold&quot;</span></span>
-<span id="cb43-105"><a href="#cb43-105" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-106"><a href="#cb43-106" tabindex="-1"></a><span class="co">#&gt; $plot$title_style$fontsize</span></span>
-<span id="cb43-107"><a href="#cb43-107" tabindex="-1"></a><span class="co">#&gt; [1] 14.4</span></span>
-<span id="cb43-108"><a href="#cb43-108" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-109"><a href="#cb43-109" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-110"><a href="#cb43-110" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style</span></span>
-<span id="cb43-111"><a href="#cb43-111" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$boxes</span></span>
-<span id="cb43-112"><a href="#cb43-112" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
-<span id="cb43-113"><a href="#cb43-113" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-114"><a href="#cb43-114" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$labels</span></span>
-<span id="cb43-115"><a href="#cb43-115" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
-<span id="cb43-116"><a href="#cb43-116" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-117"><a href="#cb43-117" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$fill</span></span>
-<span id="cb43-118"><a href="#cb43-118" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightsteelblue&quot;</span></span>
-<span id="cb43-119"><a href="#cb43-119" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-120"><a href="#cb43-120" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$col</span></span>
-<span id="cb43-121"><a href="#cb43-121" tabindex="-1"></a><span class="co">#&gt; [1] &quot;transparent&quot;</span></span>
-<span id="cb43-122"><a href="#cb43-122" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-123"><a href="#cb43-123" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$label_style</span></span>
-<span id="cb43-124"><a href="#cb43-124" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
-<span id="cb43-125"><a href="#cb43-125" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-126"><a href="#cb43-126" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$lwd</span></span>
-<span id="cb43-127"><a href="#cb43-127" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
-<span id="cb43-128"><a href="#cb43-128" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-129"><a href="#cb43-129" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$alpha</span></span>
-<span id="cb43-130"><a href="#cb43-130" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
-<span id="cb43-131"><a href="#cb43-131" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb43-132"><a href="#cb43-132" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$padding</span></span>
-<span id="cb43-133"><a href="#cb43-133" tabindex="-1"></a><span class="co">#&gt; [1] 4mm</span></span></code></pre></div>
+<span id="cb43-65"><a href="#cb43-65" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$alpha</span></span>
+<span id="cb43-66"><a href="#cb43-66" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-67"><a href="#cb43-67" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-68"><a href="#cb43-68" tabindex="-1"></a><span class="co">#&gt; $plot$tier_style$padding</span></span>
+<span id="cb43-69"><a href="#cb43-69" tabindex="-1"></a><span class="co">#&gt; [1] 4mm</span></span>
+<span id="cb43-70"><a href="#cb43-70" tabindex="-1"></a></span>
+<span id="cb43-71"><a href="#cb43-71" tabindex="-1"></a><span class="co"># Query specific option</span></span>
+<span id="cb43-72"><a href="#cb43-72" tabindex="-1"></a><span class="fu">caugi_options</span>(<span class="st">&quot;plot&quot;</span>)</span>
+<span id="cb43-73"><a href="#cb43-73" tabindex="-1"></a><span class="co">#&gt; $spacing</span></span>
+<span id="cb43-74"><a href="#cb43-74" tabindex="-1"></a><span class="co">#&gt; [1] 1lines</span></span>
+<span id="cb43-75"><a href="#cb43-75" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-76"><a href="#cb43-76" tabindex="-1"></a><span class="co">#&gt; $node_style</span></span>
+<span id="cb43-77"><a href="#cb43-77" tabindex="-1"></a><span class="co">#&gt; $node_style$fill</span></span>
+<span id="cb43-78"><a href="#cb43-78" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightgrey&quot;</span></span>
+<span id="cb43-79"><a href="#cb43-79" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-80"><a href="#cb43-80" tabindex="-1"></a><span class="co">#&gt; $node_style$padding</span></span>
+<span id="cb43-81"><a href="#cb43-81" tabindex="-1"></a><span class="co">#&gt; [1] 2</span></span>
+<span id="cb43-82"><a href="#cb43-82" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-83"><a href="#cb43-83" tabindex="-1"></a><span class="co">#&gt; $node_style$size</span></span>
+<span id="cb43-84"><a href="#cb43-84" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-85"><a href="#cb43-85" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-86"><a href="#cb43-86" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-87"><a href="#cb43-87" tabindex="-1"></a><span class="co">#&gt; $edge_style</span></span>
+<span id="cb43-88"><a href="#cb43-88" tabindex="-1"></a><span class="co">#&gt; $edge_style$arrow_size</span></span>
+<span id="cb43-89"><a href="#cb43-89" tabindex="-1"></a><span class="co">#&gt; [1] 3</span></span>
+<span id="cb43-90"><a href="#cb43-90" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-91"><a href="#cb43-91" tabindex="-1"></a><span class="co">#&gt; $edge_style$circle_size</span></span>
+<span id="cb43-92"><a href="#cb43-92" tabindex="-1"></a><span class="co">#&gt; [1] 1.5</span></span>
+<span id="cb43-93"><a href="#cb43-93" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-94"><a href="#cb43-94" tabindex="-1"></a><span class="co">#&gt; $edge_style$fill</span></span>
+<span id="cb43-95"><a href="#cb43-95" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
+<span id="cb43-96"><a href="#cb43-96" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-97"><a href="#cb43-97" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-98"><a href="#cb43-98" tabindex="-1"></a><span class="co">#&gt; $label_style</span></span>
+<span id="cb43-99"><a href="#cb43-99" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
+<span id="cb43-100"><a href="#cb43-100" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-101"><a href="#cb43-101" tabindex="-1"></a><span class="co">#&gt; $title_style</span></span>
+<span id="cb43-102"><a href="#cb43-102" tabindex="-1"></a><span class="co">#&gt; $title_style$col</span></span>
+<span id="cb43-103"><a href="#cb43-103" tabindex="-1"></a><span class="co">#&gt; [1] &quot;black&quot;</span></span>
+<span id="cb43-104"><a href="#cb43-104" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-105"><a href="#cb43-105" tabindex="-1"></a><span class="co">#&gt; $title_style$fontface</span></span>
+<span id="cb43-106"><a href="#cb43-106" tabindex="-1"></a><span class="co">#&gt; [1] &quot;bold&quot;</span></span>
+<span id="cb43-107"><a href="#cb43-107" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-108"><a href="#cb43-108" tabindex="-1"></a><span class="co">#&gt; $title_style$fontsize</span></span>
+<span id="cb43-109"><a href="#cb43-109" tabindex="-1"></a><span class="co">#&gt; [1] 14.4</span></span>
+<span id="cb43-110"><a href="#cb43-110" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-111"><a href="#cb43-111" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-112"><a href="#cb43-112" tabindex="-1"></a><span class="co">#&gt; $tier_style</span></span>
+<span id="cb43-113"><a href="#cb43-113" tabindex="-1"></a><span class="co">#&gt; $tier_style$boxes</span></span>
+<span id="cb43-114"><a href="#cb43-114" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb43-115"><a href="#cb43-115" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-116"><a href="#cb43-116" tabindex="-1"></a><span class="co">#&gt; $tier_style$labels</span></span>
+<span id="cb43-117"><a href="#cb43-117" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb43-118"><a href="#cb43-118" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-119"><a href="#cb43-119" tabindex="-1"></a><span class="co">#&gt; $tier_style$fill</span></span>
+<span id="cb43-120"><a href="#cb43-120" tabindex="-1"></a><span class="co">#&gt; [1] &quot;lightsteelblue&quot;</span></span>
+<span id="cb43-121"><a href="#cb43-121" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-122"><a href="#cb43-122" tabindex="-1"></a><span class="co">#&gt; $tier_style$col</span></span>
+<span id="cb43-123"><a href="#cb43-123" tabindex="-1"></a><span class="co">#&gt; [1] &quot;transparent&quot;</span></span>
+<span id="cb43-124"><a href="#cb43-124" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-125"><a href="#cb43-125" tabindex="-1"></a><span class="co">#&gt; $tier_style$label_style</span></span>
+<span id="cb43-126"><a href="#cb43-126" tabindex="-1"></a><span class="co">#&gt; list()</span></span>
+<span id="cb43-127"><a href="#cb43-127" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-128"><a href="#cb43-128" tabindex="-1"></a><span class="co">#&gt; $tier_style$lwd</span></span>
+<span id="cb43-129"><a href="#cb43-129" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-130"><a href="#cb43-130" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-131"><a href="#cb43-131" tabindex="-1"></a><span class="co">#&gt; $tier_style$alpha</span></span>
+<span id="cb43-132"><a href="#cb43-132" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb43-133"><a href="#cb43-133" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb43-134"><a href="#cb43-134" tabindex="-1"></a><span class="co">#&gt; $tier_style$padding</span></span>
+<span id="cb43-135"><a href="#cb43-135" tabindex="-1"></a><span class="co">#&gt; [1] 4mm</span></span></code></pre></div>
 </div>
 </div>
 <div id="advanced-usage" class="section level2">
@@ -1225,7 +1226,7 @@ external packages.</p>
 </div>
 <div id="references" class="section level2 unnumbered">
 <h2 class="unnumbered">References</h2>
-<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-fruchterman1991" class="csl-entry">
 Fruchterman, Thomas M. J., and Edward M. Reingold. 1991. <span>“Graph
 Drawing by Force-Directed Placement.”</span> <em>Software: Practice and

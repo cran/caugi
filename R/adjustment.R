@@ -8,9 +8,9 @@
 #' in `Y` given `Z` in a DAG.
 #'
 #' @param cg A `caugi` object.
-#' @param X,Y,Z Node selectors: character vector of names, unquoted expression
-#'   (supports `+` and `c()`), or `NULL`. Use `*_index` to pass 1-based indices.
-#'   If `Z` is `NULL` or missing, no nodes are conditioned on.
+#' @param X,Y,Z Character vectors of node names, or `NULL`. Use `*_index` to
+#'   pass 1-based indices. If `Z` is `NULL` or missing, no nodes are conditioned
+#'   on.
 #' @param X_index,Y_index,Z_index Optional numeric 1-based indices (exclusive
 #'   with `X`,`Y`,`Z` respectively).
 #'
@@ -52,13 +52,12 @@ d_separated <- function(
   ) {
     stop("Provide exactly one X and one Y.", call. = FALSE)
   }
-  cg <- build(cg)
 
-  X_idx0 <- .resolve_idx0_get(cg@name_index_map, X, X_index)
-  Y_idx0 <- .resolve_idx0_get(cg@name_index_map, Y, Y_index)
-  Z_idx0 <- .resolve_idx0_mget(cg@name_index_map, Z, Z_index)
+  X_idx0 <- .resolve_idx0_get(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_get(cg@session, Y, Y_index)
+  Z_idx0 <- .resolve_idx0_mget(cg@session, Z, Z_index)
 
-  d_separated_ptr(cg@ptr, X_idx0, Y_idx0, Z_idx0)
+  rs_d_separated(cg@session, X_idx0, Y_idx0, Z_idx0)
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -118,17 +117,21 @@ adjustment_set <- function(
   ) {
     stop("Provide exactly one X and one Y.", call. = FALSE)
   }
-  cg <- build(cg)
+
   type <- match.arg(type)
 
-  X_idx0 <- .resolve_idx0_get(cg@name_index_map, X, X_index)
-  Y_idx0 <- .resolve_idx0_get(cg@name_index_map, Y, Y_index)
+  X_idx0 <- .resolve_idx0_get(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_get(cg@session, Y, Y_index)
 
   idx0 <- switch(
     type,
-    parents = adjustment_set_parents_ptr(cg@ptr, X_idx0, Y_idx0),
-    backdoor = adjustment_set_backdoor_ptr(cg@ptr, X_idx0, Y_idx0),
-    optimal = adjustment_set_optimal_ptr(cg@ptr, X_idx0, Y_idx0)
+    parents = rs_adjustment_set_parents(cg@session, X_idx0, Y_idx0),
+    backdoor = rs_adjustment_set_backdoor(
+      cg@session,
+      X_idx0,
+      Y_idx0
+    ),
+    optimal = rs_adjustment_set_optimal(cg@session, X_idx0, Y_idx0)
   )
   cg@nodes$name[idx0 + 1L]
 }
@@ -182,13 +185,12 @@ is_valid_backdoor <- function(
   ) {
     stop("Provide exactly one X and one Y.", call. = FALSE)
   }
-  cg <- build(cg)
 
-  X_idx0 <- .resolve_idx0_get(cg@name_index_map, X, X_index)
-  Y_idx0 <- .resolve_idx0_get(cg@name_index_map, Y, Y_index)
-  Z_idx0 <- .resolve_idx0_mget(cg@name_index_map, Z, Z_index)
+  X_idx0 <- .resolve_idx0_get(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_get(cg@session, Y, Y_index)
+  Z_idx0 <- .resolve_idx0_mget(cg@session, Z, Z_index)
 
-  is_valid_backdoor_set_ptr(cg@ptr, X_idx0, Y_idx0, Z_idx0)
+  rs_is_valid_backdoor_set(cg@session, X_idx0, Y_idx0, Z_idx0)
 }
 
 #' @title Get all backdoor sets up to a certain size.
@@ -264,13 +266,12 @@ all_backdoor_sets <- function(
   ) {
     stop("Provide exactly one X and one Y.", call. = FALSE)
   }
-  cg <- build(cg)
 
-  X_idx0 <- .resolve_idx0_get(cg@name_index_map, X, X_index)
-  Y_idx0 <- .resolve_idx0_get(cg@name_index_map, Y, Y_index)
+  X_idx0 <- .resolve_idx0_get(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_get(cg@session, Y, Y_index)
 
-  sets_idx0 <- all_backdoor_sets_ptr(
-    cg@ptr,
+  sets_idx0 <- rs_all_backdoor_sets(
+    cg@session,
     X_idx0,
     Y_idx0,
     minimal,
@@ -278,6 +279,137 @@ all_backdoor_sets <- function(
   )
   nm <- cg@nodes$name
   lapply(sets_idx0, \(idx0) nm[idx0 + 1L])
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────── Minimal d-separator ───────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+#' @title Compute a minimal d-separator
+#'
+#' @description Computes a minimal d-separator Z for sets X and Y in a DAG,
+#' optionally with mandatory inclusions and restrictions on the separator.
+#'
+#' @details
+#' A d-separator Z for X and Y is a set of nodes such that conditioning on Z
+#' d-separates X from Y in the graph. This function returns a minimal separator,
+#' meaning no proper subset of Z still d-separates X and Y.
+#'
+#' The algorithm:
+#' 1. Restricts to ancestors of X U Y U I
+#' 2. Computes initial separator candidate from R
+#' 3. Refines using Bayes-ball d-connection algorithm
+#' 4. Returns minimal separator or NULL if none exists within R
+#'
+#' @param cg A `caugi` object (must be a DAG).
+#' @param X,Y Character vectors of node names. Use `*_index` to pass 1-based
+#'   indices.
+#' @param I Nodes that must be included in the separator.
+#' @param R Nodes allowed in the separator. If `NULL`, uses all nodes excluding
+#'   X and Y.
+#' @param X_index,Y_index,I_index,R_index Optional numeric 1-based indices
+#'   (exclusive with corresponding name parameters).
+#'
+#' @returns A character vector of node names representing the minimal separator,
+#' or `NULL` if no valid separator exists within the restriction R.
+#'
+#' @source van der Zander, B. & Liśkiewicz, M. (2020). Finding Minimal
+#'   d-separators in Linear Time and Applications. Proceedings of The 35th
+#'   Uncertainty in Artificial Intelligence Conference, in Proceedings of
+#'   Machine Learning Research 115:637-647 Available from
+#'   <https://proceedings.mlr.press/v115/van-der-zander20a.html>.
+#'
+#' @examples
+#' cg <- caugi(
+#'   A %-->% X,
+#'   X %-->% M,
+#'   M %-->% Y,
+#'   A %-->% Y,
+#'   class = "DAG"
+#' )
+#'
+#' # Find any minimal separator between X and Y
+#' minimal_d_separator(cg, "X", "Y")
+#'
+#' # Force M to be in the separator
+#' minimal_d_separator(cg, "X", "Y", I = "M")
+#'
+#' # Restrict separator to only {A, M}
+#' minimal_d_separator(cg, "X", "Y", R = c("A", "M"))
+#'
+#' @family adjustment
+#' @concept adjustment
+#'
+#' @export
+minimal_d_separator <- function(
+  cg,
+  X = NULL,
+  Y = NULL,
+  I = character(0),
+  R = NULL,
+  X_index = NULL,
+  Y_index = NULL,
+  I_index = NULL,
+  R_index = NULL
+) {
+  is_caugi(cg, throw_error = TRUE)
+
+  if (!is_dag(cg)) {
+    stop(
+      "`minimal_d_separator()` is only defined for DAGs. ",
+      "The graph has class \"",
+      cg@graph_class,
+      "\".",
+      call. = FALSE
+    )
+  }
+
+  # Resolve X and Y indices
+  X_idx0 <- .resolve_idx0_mget(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_mget(cg@session, Y, Y_index)
+
+  # Validate that X and Y resolve to non-empty node sets
+  if (length(X_idx0) == 0L) {
+    stop(
+      "`X` did not match any nodes in the graph. Check that the node names exist.",
+      call. = FALSE
+    )
+  }
+  if (length(Y_idx0) == 0L) {
+    stop(
+      "`Y` did not match any nodes in the graph. Check that the node names exist.",
+      call. = FALSE
+    )
+  }
+  # Resolve I indices (default to empty)
+  I_idx0 <- .resolve_idx0_mget(cg@session, I, I_index)
+
+  # Resolve R indices (default to all nodes except X and Y)
+  if (is.null(R) && is.null(R_index)) {
+    # Default: all nodes except X and Y
+    all_idx0 <- seq.int(0L, nrow(cg@nodes) - 1L)
+    R_idx0 <- setdiff(setdiff(all_idx0, X_idx0), Y_idx0)
+  } else {
+    R_idx0 <- .resolve_idx0_mget(cg@session, R, R_index)
+  }
+
+  # Call Rust function
+  result_idx0 <- rs_minimal_d_separator(
+    cg@session,
+    as.integer(X_idx0),
+    as.integer(Y_idx0),
+    as.integer(I_idx0),
+    as.integer(R_idx0)
+  )
+
+  # Convert result
+  if (is.null(result_idx0)) {
+    return(NULL)
+  }
+
+  # Convert 0-based indices to node names
+  nm <- cg@nodes$name
+  nm[result_idx0 + 1L]
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -331,13 +463,12 @@ is_valid_adjustment_admg <- function(
   if (is.null(Y) && is.null(Y_index)) {
     stop("Y (or Y_index) must be provided.", call. = FALSE)
   }
-  cg <- build(cg)
 
-  X_idx0 <- .resolve_idx0_mget(cg@name_index_map, X, X_index)
-  Y_idx0 <- .resolve_idx0_mget(cg@name_index_map, Y, Y_index)
-  Z_idx0 <- .resolve_idx0_mget(cg@name_index_map, Z, Z_index)
+  X_idx0 <- .resolve_idx0_mget(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_mget(cg@session, Y, Y_index)
+  Z_idx0 <- .resolve_idx0_mget(cg@session, Z, Z_index)
 
-  is_valid_adjustment_set_admg_ptr(cg@ptr, X_idx0, Y_idx0, Z_idx0)
+  rs_is_valid_adjustment_set_admg(cg@session, X_idx0, Y_idx0, Z_idx0)
 }
 
 #' @title Get all valid adjustment sets in an ADMG
@@ -387,13 +518,12 @@ all_adjustment_sets_admg <- function(
   if (is.null(Y) && is.null(Y_index)) {
     stop("Y (or Y_index) must be provided.", call. = FALSE)
   }
-  cg <- build(cg)
 
-  X_idx0 <- .resolve_idx0_mget(cg@name_index_map, X, X_index)
-  Y_idx0 <- .resolve_idx0_mget(cg@name_index_map, Y, Y_index)
+  X_idx0 <- .resolve_idx0_mget(cg@session, X, X_index)
+  Y_idx0 <- .resolve_idx0_mget(cg@session, Y, Y_index)
 
-  sets_idx0 <- all_adjustment_sets_admg_ptr(
-    cg@ptr,
+  sets_idx0 <- rs_all_adjustment_sets_admg(
+    cg@session,
     X_idx0,
     Y_idx0,
     minimal,
@@ -410,36 +540,25 @@ all_adjustment_sets_admg <- function(
 #' @title Resolve node name or index to 0-based index.
 #'
 #' @description Internal helper function to resolve either a node name or a
-#' node index to a 0-based index.
-#' `.resolve_idx0_get` uses `get` on the `fastmap` and expects a single value,
-#' while `.resolve_idx0_mget` uses `mget` and can return multiple values.
+#' node index to a 0-based index using the Rust session.
+#' `.resolve_idx0_get` expects a single value,
+#' while `.resolve_idx0_mget` can return multiple values.
 #'
-#' @param nm_idx_map A `fastmap` mapping node names to 0-based indices from
-#' a `caugi`.
+#' @param session A GraphSession pointer.
 #' @param node_name Optional character vector of node names.
 #' @param node_index Optional numeric vector of 1-based node indices.
 #'
 #' @name .resolve_idx0_get
 #'
-#' @seealso [fastmap::fastmap]
 #' @keywords internal
-.resolve_idx0_get <- function(nm_idx_map, node_name = NULL, node_index = NULL) {
+.resolve_idx0_get <- function(session, node_name = NULL, node_index = NULL) {
   if (!is.null(node_index)) {
     if (!is.null(node_name)) {
-      stop("Provide either a node name or node index.")
+      stop("Provide either a node name or node index.", call. = FALSE)
     }
     as.integer(node_index - 1L)
   } else if (!is.null(node_name)) {
-    nm_idx_map$get(
-      node_name,
-      missing = stop(
-        paste(
-          "Non-existent node name:",
-          paste(setdiff(node_name, nm_idx_map$keys()), collapse = ", ")
-        ),
-        call. = FALSE
-      )
-    )
+    rs_index_of(session, node_name)
   } else {
     stop(
       "Either the node name or the node index must be provided.",
@@ -450,30 +569,15 @@ all_adjustment_sets_admg <- function(
 
 #' @name .resolve_idx0_get
 #' @keywords internal
-.resolve_idx0_mget <- function(
-  nm_idx_map,
-  node_name = NULL,
-  node_index = NULL
-) {
+.resolve_idx0_mget <- function(session, node_name = NULL, node_index = NULL) {
   if (is.null(node_name) && is.null(node_index)) {
     integer(0)
   } else if (!is.null(node_index)) {
     if (!is.null(node_name)) {
-      stop("Provide either a node name or node index.")
+      stop("Provide either a node name or node index.", call. = FALSE)
     }
     as.integer(node_index - 1L)
   } else if (!is.null(node_name)) {
-    as.integer(
-      nm_idx_map$mget(
-        node_name,
-        missing = stop(
-          paste(
-            "Non-existent node name:",
-            paste(setdiff(node_name, nm_idx_map$keys()), collapse = ", ")
-          ),
-          call. = FALSE
-        )
-      )
-    )
+    rs_indices_of(session, node_name)
   }
 }

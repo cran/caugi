@@ -58,10 +58,6 @@ test_that("duplicate glyph triggers operator registration error on second call",
 test_that("glyph validation", {
   reset_caugi_registry()
   expect_error(
-    register_caugi_edge("----", "tail", "arrow", "directed", FALSE),
-    "length 3"
-  )
-  expect_error(
     register_caugi_edge("%->", "tail", "arrow", "directed", FALSE),
     "must not contain '%'"
   )
@@ -69,6 +65,19 @@ test_that("glyph validation", {
     register_caugi_edge(c("-->", "<--"), "tail", "arrow", "directed", FALSE),
     "single string"
   )
+
+  reset_caugi_registry()
+})
+
+test_that("glyph arbitary length works", {
+  reset_caugi_registry()
+  sucess <- register_caugi_edge("===>", "tail", "arrow", "directed", FALSE)
+  expect_true(sucess)
+  edge_ops_get <- getFromNamespace(".edge_ops_get", "caugi")
+  glyph_map_get <- getFromNamespace(".glyph_map_get", "caugi")
+  op <- "%===>%"
+  expect_true(op %in% edge_ops_get())
+  expect_equal(glyph_map_get()[[op]], "===>")
 
   reset_caugi_registry()
 })
@@ -125,12 +134,30 @@ test_that("reverse edge, <--, behaves correctly, when initalized in a cg", {
   reset_caugi_registry()
   register_caugi_edge("<--", "arrow", "tail", "directed", FALSE)
   cg <- caugi(A %-->% B, B %<--% C, class = "DAG")
-  expect_identical(parents_of_ptr(cg@ptr, 0L), list(integer(0)))
-  expect_identical(children_of_ptr(cg@ptr, 0L), list(1L))
-  expect_identical(parents_of_ptr(cg@ptr, 1L), list(c(0L, 2L)))
-  expect_identical(children_of_ptr(cg@ptr, 1L), list(integer(0)))
-  expect_identical(parents_of_ptr(cg@ptr, 2L), list(integer(0)))
-  expect_identical(children_of_ptr(cg@ptr, 2L), list(1L))
+  expect_identical(
+    rs_parents_of(cg@session, 0L),
+    list(integer(0))
+  )
+  expect_identical(
+    rs_children_of(cg@session, 0L),
+    list(1L)
+  )
+  expect_identical(
+    rs_parents_of(cg@session, 1L),
+    list(c(0L, 2L))
+  )
+  expect_identical(
+    rs_children_of(cg@session, 1L),
+    list(integer(0))
+  )
+  expect_identical(
+    rs_parents_of(cg@session, 2L),
+    list(integer(0))
+  )
+  expect_identical(
+    rs_children_of(cg@session, 2L),
+    list(1L)
+  )
 
   reset_caugi_registry()
 })

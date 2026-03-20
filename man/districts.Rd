@@ -2,20 +2,31 @@
 % Please edit documentation in R/queries.R
 \name{districts}
 \alias{districts}
-\title{Get districts (c-components) of an ADMG}
+\title{Get districts (c-components) of an ADMG or AG}
 \usage{
-districts(cg)
+districts(cg, nodes = NULL, index = NULL, all)
 }
 \arguments{
-\item{cg}{A \code{caugi} object of class ADMG.}
+\item{cg}{A \code{caugi} object of class ADMG or AG.}
+
+\item{nodes}{Optional character vector of node names. If supplied, returns
+district(s) containing these nodes.}
+
+\item{index}{Optional numeric vector of 1-based node indices. If supplied,
+returns district(s) containing these indices.}
+
+\item{all}{DEPRECATED (If \code{TRUE}, return all districts explicitly.
+Cannot be combined with \code{nodes} or \code{index}.)}
 }
 \value{
-A list of character vectors,
-each containing the nodes in a district.
+If all districts are requested: a list of character vectors, one per
+district. If \code{nodes}/\code{index} are supplied: either a character vector (single
+target) or a named list of character vectors (multiple targets).
 }
 \description{
-Get the districts (c-components) of an ADMG.
-A district is a maximal set of nodes connected via bidirected edges.
+Get districts (c-components) for all nodes, or for selected
+nodes in an ADMG/AG. A district is a maximal set of nodes connected via
+bidirected edges. If both \code{nodes} and \code{index} are \code{NULL}, returns all districts in the graph.
 }
 \examples{
 cg <- caugi(
@@ -26,6 +37,8 @@ cg <- caugi(
 )
 districts(cg)
 # Returns list with districts: {A, C}, {B}, {D, E}
+districts(cg, nodes = "A") # Returns c("A", "C")
+districts(cg, index = c(1, 4))
 
 }
 \seealso{
@@ -45,13 +58,16 @@ Other queries:
 \code{\link{is_dag}()},
 \code{\link{is_empty_caugi}()},
 \code{\link{is_mag}()},
+\code{\link{is_mpdag}()},
 \code{\link{is_pdag}()},
+\code{\link{is_simple}()},
 \code{\link{is_ug}()},
 \code{\link{m_separated}()},
 \code{\link{markov_blanket}()},
 \code{\link{neighbors}()},
 \code{\link{nodes}()},
 \code{\link{parents}()},
+\code{\link{posteriors}()},
 \code{\link{same_nodes}()},
 \code{\link{spouses}()},
 \code{\link{subgraph}()},

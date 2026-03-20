@@ -49,9 +49,12 @@ edges(admg2)
 \seealso{
 Other operations: 
 \code{\link{condition_marginalize}()},
+\code{\link{dag_from_pdag}()},
 \code{\link{exogenize}()},
+\code{\link{meek_closure}()},
 \code{\link{moralize}()},
 \code{\link{mutate_caugi}()},
+\code{\link{normalize_latent_structure}()},
 \code{\link{skeleton}()}
 }
 \concept{operations}

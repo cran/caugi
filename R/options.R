@@ -21,6 +21,7 @@
 #' caugi_options(caugi_default_options())
 caugi_default_options <- function() {
   list(
+    use_open_graph_definition = TRUE,
     plot = list(
       spacing = grid::unit(1, "lines"),
       node_style = list(
@@ -59,14 +60,24 @@ caugi_default_options <- function() {
 #' default visual styles for nodes, edges, labels, and titles.
 #'
 #' @param ... Named values to update options with, or unnamed option names to
-#'   retrieve. To query all options, call without arguments.
+#'   retrieve. Multiple unnamed arguments drill down through nested options.
+#'   To query all options, call without arguments. Attempting to access a
+#'   non-existent option will raise an error.
 #'
 #' @return When setting, returns (invisibly) the previous values for the updated
 #'   options. When getting (no arguments or unnamed character vector), returns
 #'   the requested options.
 #'
 #' @details
-#' Currently supported options are nested under the `plot` key:
+#' The `use_open_graph_definition` option (`TRUE`/`FALSE`, default `TRUE`)
+#' controls how graph queries interpret reachability relations.
+#' When `TRUE` (open definition), queries such as `ancestors()`,
+#' `descendants()`, `posteriors()`,and `anteriors()`
+#' exclude the queried node itself.
+#' When `FALSE` (closed definition), the queried node is included in the
+#' results.
+#'
+#' The plot options are nested under the `plot` key:
 #'
 #' - `spacing`: A [grid::unit()] controlling space between composed plots
 #'   (default: `grid::unit(1, "lines")`)
@@ -96,8 +107,15 @@ caugi_default_options <- function() {
 #' # Query all options
 #' caugi_options()
 #'
+#' # Use closed graph definition
+#' caugi_options(use_open_graph_definition = FALSE)
+#'
 #' # Query specific option
 #' caugi_options("plot")
+#'
+#' # Query nested option
+#' caugi_options("plot", "tier_style")
+#' caugi_options("plot", "node_style", "fill")
 #'
 #' # Set plot spacing
 #' caugi_options(plot = list(spacing = grid::unit(2, "lines")))
@@ -132,13 +150,50 @@ caugi_options <- function(...) {
   }
 
   nm <- names(new)
+
   if (is.null(nm)) {
-    return(old[unlist(new)])
+    keys <- unlist(new)
+
+    # Fast path for single key access (most common case)
+    if (length(keys) == 1L) {
+      if (!keys %in% names(old)) {
+        stop(sprintf("Option '%s' does not exist", keys), call. = FALSE)
+      }
+      return(old[[keys]])
+    }
+
+    # Multiple keys: drill down through nested structure
+    result <- old
+    path <- character()
+    for (key in keys) {
+      path <- c(path, key)
+      if (!is.list(result)) {
+        stop(
+          sprintf(
+            "Cannot access '%s': '%s' is not a list",
+            paste(path, collapse = "$"),
+            paste(utils::head(path, -1L), collapse = "$")
+          ),
+          call. = FALSE
+        )
+      }
+      if (!key %in% names(result)) {
+        stop(
+          sprintf("Option '%s' does not exist", paste(path, collapse = "$")),
+          call. = FALSE
+        )
+      }
+      result <- result[[key]]
+    }
+    return(result)
   }
 
   out <- old[nm]
   names(out) <- nm
 
   .caugi_env$options <- utils::modifyList(old, new)
+  .caugi_env$open_graph_def <- isTRUE(
+    .caugi_env$options$use_open_graph_definition
+  )
   invisible(out)
 }

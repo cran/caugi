@@ -100,7 +100,7 @@ test_that("to_mermaid works with empty graph", {
 })
 
 test_that("to_mermaid builds graph if needed", {
-  cg <- caugi(A %-->% B, build = FALSE)
+  cg <- caugi(A %-->% B)
 
   mmd <- to_mermaid(cg)
 
@@ -133,4 +133,34 @@ test_that("write_mermaid accepts direction", {
   expect_match(content, "flowchart LR")
 
   unlink(tmp)
+})
+
+test_that("to_mermaid handles unsupported edge types", {
+  # o-o edges are not explicitly supported by mermaid format
+  # Should default to directed edge
+  cg <- caugi(
+    A %o-o% B,
+    class = "UNKNOWN"
+  )
+
+  mmd <- to_mermaid(cg)
+  mmd_str <- as.character(mmd)
+
+  # Should use default directed arrow for unsupported edge type
+  expect_match(mmd_str, "A --> B", fixed = TRUE)
+})
+
+test_that("to_mermaid handles --o edge type", {
+  # --o edges are not explicitly supported
+  # Should default to directed edge
+  cg <- caugi(
+    A %--o% B,
+    class = "UNKNOWN"
+  )
+
+  mmd <- to_mermaid(cg)
+  mmd_str <- as.character(mmd)
+
+  # Should use default directed arrow for unsupported edge type
+  expect_match(mmd_str, "A --> B", fixed = TRUE)
 })

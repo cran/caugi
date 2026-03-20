@@ -431,49 +431,11 @@ correlation threshold.</p>
 <p>Let’s try it out!</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>cg <span class="ot">&lt;-</span> <span class="fu">correlation_implies_causation</span>(df)</span>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>cg</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; built: FALSE; ptr=NULL&gt;</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   graph_class: DAG</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; session=0x5565430772f0&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   graph_class: UNKNOWN</span></span>
 <span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;   nodes: V1, V2, V3</span></span>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;   edges: V1--&gt;V2</span></span></code></pre></div>
-</div>
-<div id="something-is-up" class="section level2">
-<h2>Something is up!</h2>
-<p>Let’s inspect the object:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>cg<span class="sc">@</span>built</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; [1] FALSE</span></span></code></pre></div>
-<p>We can see that the object is not built yet. So, we have to include
-that as well. Building is important in <code>caugi</code>, as it
-finalizes the graph structure and prepares it for analysis. It also
-makes sure that the graph class agrees with the input graph.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co">#&#39; @title Correlation implies causation!</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&#39;</span></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&#39; @param df A `data.frame` with numeric columns</span></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&#39;</span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&#39; @returns A `caugi` representing the causal graph that is totally true!</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>correlation_implies_causation <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">caugi</span>(<span class="at">nodes =</span> <span class="fu">names</span>(df))</span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  cor_matrix <span class="ot">&lt;-</span> <span class="fu">cor</span>(df)</span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="co"># Add edges for correlations above 0.5</span></span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(<span class="fu">ncol</span>(cor_matrix))) {</span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>i) {</span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>      <span class="cf">if</span> (i <span class="sc">!=</span> j <span class="sc">&amp;&amp;</span> <span class="fu">abs</span>(cor_matrix[i, j]) <span class="sc">&gt;</span> <span class="fl">0.5</span>) {</span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>        from <span class="ot">&lt;-</span> <span class="fu">names</span>(df)[j]</span>
-<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>        to <span class="ot">&lt;-</span> <span class="fu">names</span>(df)[i]</span>
-<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>        cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">add_edges</span>(cg, <span class="at">from =</span> from, <span class="at">edge =</span> <span class="st">&quot;--&gt;&quot;</span>, <span class="at">to =</span> to) <span class="co"># add edge to caugi</span></span>
-<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>      }</span>
-<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>    }</span>
-<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>  }</span>
-<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>  caugi<span class="sc">::</span><span class="fu">build</span>(cg)</span>
-<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>  <span class="fu">return</span>(cg)</span>
-<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a>}</span></code></pre></div>
-<p><strong>Hold on, it doesn’t check every iteration?</strong> No,
-<code>caugi</code> is designed to be efficient, so it only checks the
-graph’s validity when you explicitly call <code>build()</code>. This
-allows you to add multiple edges without incurring the overhead of
-validation after each addition. You <em>can</em> ensure that your
-algorithm breaks, when introducing a faulty edge by building at each
-step. This is computationally expensive, but sometimes necessary for
-debugging.</p>
+<p>The graph is ready to use!</p>
 </div>
 <div id="class-of-the-output" class="section level2">
 <h2>Class of the output</h2>
@@ -483,41 +445,41 @@ advantageous for several reasons), but you don’t want to enforce
 acyclicity in the algorithm, as that could sometimes cause your function
 to throw an error. You would rather have it return a graph in any case,
 but if it <em>is</em> a DAG, then we return a DAG.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co">#&#39; @title Correlation implies causation!</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&#39;</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&#39; @param df A `data.frame` with numeric columns</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&#39;</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&#39; @returns A `caugi` representing the causal graph that is totally true!</span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>correlation_implies_causation <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">caugi</span>(<span class="at">nodes =</span> <span class="fu">names</span>(df))</span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  cor_matrix <span class="ot">&lt;-</span> <span class="fu">cor</span>(df)</span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>  <span class="co"># Add edges for correlations above 0.5</span></span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">caugi</span>(<span class="at">nodes =</span> <span class="fu">names</span>(df))</span>
-<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>  cor_matrix <span class="ot">&lt;-</span> <span class="fu">cor</span>(df)</span>
-<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>  <span class="co"># Add edges for correlations above 0.5</span></span>
-<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(<span class="fu">ncol</span>(cor_matrix))) {</span>
-<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>i) {</span>
-<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>      <span class="cf">if</span> (i <span class="sc">!=</span> j <span class="sc">&amp;&amp;</span> <span class="fu">abs</span>(cor_matrix[i, j]) <span class="sc">&gt;</span> <span class="fl">0.5</span>) {</span>
-<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>        from <span class="ot">&lt;-</span> <span class="fu">names</span>(df)[j]</span>
-<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a>        to <span class="ot">&lt;-</span> <span class="fu">names</span>(df)[i]</span>
-<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a>        cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">add_edges</span>(cg, <span class="at">from =</span> from, <span class="at">edge =</span> <span class="st">&quot;--&gt;&quot;</span>, <span class="at">to =</span> to) <span class="co"># add edge to caugi</span></span>
-<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a>      }</span>
-<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a>    }</span>
-<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a>  }</span>
-<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a>  <span class="cf">if</span> (caugi<span class="sc">::</span><span class="fu">is_dag</span>(cg)) cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">mutate_caugi</span>(cg, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
-<span id="cb9-23"><a href="#cb9-23" tabindex="-1"></a>  <span class="fu">return</span>(cg)</span>
-<span id="cb9-24"><a href="#cb9-24" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co">#&#39; @title Correlation implies causation!</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&#39; @param df A `data.frame` with numeric columns</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&#39; @returns A `caugi` representing the causal graph that is totally true!</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>correlation_implies_causation <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">caugi</span>(<span class="at">nodes =</span> <span class="fu">names</span>(df))</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  cor_matrix <span class="ot">&lt;-</span> <span class="fu">cor</span>(df)</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="co"># Add edges for correlations above 0.5</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">caugi</span>(<span class="at">nodes =</span> <span class="fu">names</span>(df))</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  cor_matrix <span class="ot">&lt;-</span> <span class="fu">cor</span>(df)</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  <span class="co"># Add edges for correlations above 0.5</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(<span class="fu">ncol</span>(cor_matrix))) {</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>i) {</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>      <span class="cf">if</span> (i <span class="sc">!=</span> j <span class="sc">&amp;&amp;</span> <span class="fu">abs</span>(cor_matrix[i, j]) <span class="sc">&gt;</span> <span class="fl">0.5</span>) {</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>        from <span class="ot">&lt;-</span> <span class="fu">names</span>(df)[j]</span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>        to <span class="ot">&lt;-</span> <span class="fu">names</span>(df)[i]</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>        cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">add_edges</span>(cg, <span class="at">from =</span> from, <span class="at">edge =</span> <span class="st">&quot;--&gt;&quot;</span>, <span class="at">to =</span> to) <span class="co"># add edge to caugi</span></span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>      }</span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>    }</span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>  }</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>  <span class="cf">if</span> (caugi<span class="sc">::</span><span class="fu">is_dag</span>(cg)) cg <span class="ot">&lt;-</span> caugi<span class="sc">::</span><span class="fu">mutate_caugi</span>(cg, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>  <span class="fu">return</span>(cg)</span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>}</span></code></pre></div>
 <p>Now, when you call <code>correlation_implies_causation(df)</code>, it
 will return a <code>caugi</code> graph that is a DAG if possible,
 otherwise an <code>&quot;UNKNOWN&quot;</code> graph.</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>cg <span class="ot">&lt;-</span> <span class="fu">correlation_implies_causation</span>(df)</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>cg</span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; built: TRUE; ptr=0x55dcad5bb040&gt;</span></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co">#&gt;   graph_class: DAG</span></span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt;   nodes: V1, V2, V3</span></span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;   edges: V1--&gt;V2</span></span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>cg<span class="sc">@</span>graph_class</span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; [1] &quot;DAG&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>cg <span class="ot">&lt;-</span> <span class="fu">correlation_implies_causation</span>(df)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>cg</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; session=0x556542d033d0&gt;</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;   graph_class: DAG</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt;   nodes: V1, V2, V3</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt;   edges: V1--&gt;V2</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>cg<span class="sc">@</span>graph_class</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; [1] &quot;DAG&quot;</span></span></code></pre></div>
 </div>
 <div id="thats-it" class="section level2">
 <h2>That’s it!</h2>

@@ -6,14 +6,16 @@
 \alias{V}
 \title{Get nodes or edges of a \code{caugi}}
 \usage{
-nodes(cg)
+nodes(cg, ...)
 
-vertices(cg)
+vertices(cg, ...)
 
-V(cg)
+V(cg, ...)
 }
 \arguments{
 \item{cg}{A \code{caugi} object.}
+
+\item{...}{Additional arguments (currently unused).}
 }
 \value{
 A \code{data.table} with a \code{name} column.
@@ -49,12 +51,15 @@ Other queries:
 \code{\link{is_dag}()},
 \code{\link{is_empty_caugi}()},
 \code{\link{is_mag}()},
+\code{\link{is_mpdag}()},
 \code{\link{is_pdag}()},
+\code{\link{is_simple}()},
 \code{\link{is_ug}()},
 \code{\link{m_separated}()},
 \code{\link{markov_blanket}()},
 \code{\link{neighbors}()},
 \code{\link{parents}()},
+\code{\link{posteriors}()},
 \code{\link{same_nodes}()},
 \code{\link{spouses}()},
 \code{\link{subgraph}()},

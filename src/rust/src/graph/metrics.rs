@@ -203,8 +203,9 @@ pub mod aid {
                 let core: &CaugiGraph = d.core_ref();
                 for u in 0..n as u32 {
                     for k in core.row_range(u) {
-                        let spec = &core.registry.specs[core.etype[k] as usize];
-                        if matches!(spec.class, EdgeClass::Directed) && core.side[k] == 0 {
+                        let spec = core.spec(k);
+                        // Use mark helper: is_outgoing_arrow means u -> v
+                        if matches!(spec.class, EdgeClass::Directed) && core.is_outgoing_arrow(k) {
                             // u -> v in DAG
                             let u0 = u as usize;
                             let v0 = core.col_index[k] as usize;
@@ -702,6 +703,28 @@ mod tests {
         let (_f, m) =
             oset_aid_align(AidInput::Pdag(&p_true), AidInput::Pdag(&p_guess), &inv).unwrap();
         assert!(m > 0);
+    }
+
+    #[cfg(feature = "gadjid")]
+    #[test]
+    fn aid_align_cpdag_with_undirected_edges_and_map() {
+        use super::aid::{ancestor_aid_align, AidInput};
+        use crate::graph::pdag::Pdag;
+
+        let mut reg = EdgeRegistry::new();
+        reg.register_builtins().unwrap();
+        let u = reg.code_of("---").unwrap();
+
+        // Valid CPDAG with undirected edge.
+        let mut b = GraphBuilder::new_with_registry(3, true, &reg);
+        b.add_edge(0, 1, u).unwrap();
+        let p = Pdag::new(std::sync::Arc::new(b.finalize().unwrap())).unwrap();
+        assert!(p.is_cpdag());
+
+        // Identity map still exercises the mapping path with undirected entries.
+        let inv = [0usize, 1usize, 2usize];
+        let (_f, m) = ancestor_aid_align(AidInput::Pdag(&p), AidInput::Pdag(&p), &inv).unwrap();
+        assert_eq!(m, 0);
     }
 
     #[test]

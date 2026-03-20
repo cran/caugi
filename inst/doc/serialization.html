@@ -510,44 +510,35 @@ operators:</p>
 <span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co"># Deserialize from JSON string</span></span>
 <span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>cg_from_json <span class="ot">&lt;-</span> <span class="fu">caugi_deserialize</span>(json_str)</span></code></pre></div>
 </div>
-<div id="lazy-loading" class="section level3">
-<h3>Lazy Loading</h3>
-<p>For large graphs, you can defer building:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Read without building the Rust graph structure</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>cg_lazy <span class="ot">&lt;-</span> <span class="fu">read_caugi</span>(tmp, <span class="at">lazy =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># Build when needed</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>cg_lazy <span class="ot">&lt;-</span> <span class="fu">build</span>(cg_lazy)</span></code></pre></div>
-</div>
 <div id="metadata" class="section level3">
 <h3>Metadata</h3>
 <p>Add context to your graphs with comments and tags:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">write_caugi</span>(cg, tmp,</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;Mediation model from Study A&quot;</span>,</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">tags =</span> <span class="fu">c</span>(<span class="st">&quot;mediation&quot;</span>, <span class="st">&quot;study-a&quot;</span>, <span class="st">&quot;validated&quot;</span>)</span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">write_caugi</span>(cg, tmp,</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;Mediation model from Study A&quot;</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">tags =</span> <span class="fu">c</span>(<span class="st">&quot;mediation&quot;</span>, <span class="st">&quot;study-a&quot;</span>, <span class="st">&quot;validated&quot;</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 </div>
 <div id="different-graph-types" class="section level2">
 <h2>Different Graph Types</h2>
 <p>The format supports all caugi graph classes:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># DAG</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>dag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%--&gt;%</span> Z, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co"># PDAG (with undirected edges)</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>pdag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%---%</span> Z, <span class="at">class =</span> <span class="st">&quot;PDAG&quot;</span>)</span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co"># ADMG (with bidirected edges)</span></span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>admg <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%&lt;-&gt;%</span> Z, <span class="at">class =</span> <span class="st">&quot;ADMG&quot;</span>)</span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a></span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co"># UG (undirected graph)</span></span>
-<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>ug <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%---%</span> Y, Y <span class="sc">%---%</span> Z, <span class="at">class =</span> <span class="st">&quot;UG&quot;</span>)</span>
-<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a></span>
-<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co"># Save them all</span></span>
-<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="fu">write_caugi</span>(dag, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
-<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="fu">write_caugi</span>(pdag, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
-<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="fu">write_caugi</span>(admg, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
-<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="fu">write_caugi</span>(ug, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># DAG</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>dag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%--&gt;%</span> Z, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co"># PDAG (with undirected edges)</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>pdag <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%---%</span> Z, <span class="at">class =</span> <span class="st">&quot;PDAG&quot;</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co"># ADMG (with bidirected edges)</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>admg <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%--&gt;%</span> Y, Y <span class="sc">%&lt;-&gt;%</span> Z, <span class="at">class =</span> <span class="st">&quot;ADMG&quot;</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co"># UG (undirected graph)</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>ug <span class="ot">&lt;-</span> <span class="fu">caugi</span>(X <span class="sc">%---%</span> Y, Y <span class="sc">%---%</span> Z, <span class="at">class =</span> <span class="st">&quot;UG&quot;</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co"># Save them all</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="fu">write_caugi</span>(dag, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="fu">write_caugi</span>(pdag, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="fu">write_caugi</span>(admg, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="fu">write_caugi</span>(ug, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>))</span></code></pre></div>
 </div>
 <div id="file-extension-convention" class="section level2">
 <h2>File Extension Convention</h2>
@@ -576,11 +567,11 @@ descriptions</li>
 <h2>Performance</h2>
 <p>Serialization is implemented in Rust for high performance. Large
 graphs serialize and deserialize efficiently:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>tmp_file <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>)</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>large_dag <span class="ot">&lt;-</span> <span class="fu">generate_graph</span>(<span class="at">n =</span> <span class="dv">1000</span>, <span class="at">m =</span> <span class="dv">500</span>, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="fu">system.time</span>(<span class="fu">write_caugi</span>(large_dag, tmp_file))</span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="fu">system.time</span>(res <span class="ot">&lt;-</span> <span class="fu">read_caugi</span>(tmp_file))</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="fu">unlink</span>(tmp_file)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>tmp_file <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.caugi.json&quot;</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>large_dag <span class="ot">&lt;-</span> <span class="fu">generate_graph</span>(<span class="at">n =</span> <span class="dv">1000</span>, <span class="at">m =</span> <span class="dv">500</span>, <span class="at">class =</span> <span class="st">&quot;DAG&quot;</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="fu">system.time</span>(<span class="fu">write_caugi</span>(large_dag, tmp_file))</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="fu">system.time</span>(res <span class="ot">&lt;-</span> <span class="fu">read_caugi</span>(tmp_file))</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="fu">unlink</span>(tmp_file)</span></code></pre></div>
 </div>
 
 

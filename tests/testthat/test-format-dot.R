@@ -70,7 +70,7 @@ test_that("to_dot works with single node", {
 })
 
 test_that("to_dot builds graph if needed", {
-  cg <- caugi(A %-->% B, build = FALSE)
+  cg <- caugi(A %-->% B)
 
   dot <- to_dot(cg)
 
@@ -131,4 +131,23 @@ test_that("to_dot chooses graph type correctly", {
   cg_mixed <- caugi(A %-->% B, B %---% C)
   dot_mixed <- to_dot(cg_mixed)
   expect_match(as.character(dot_mixed), "^digraph ")
+})
+
+test_that("unknown edge fallback and value formatting branch are covered", {
+  reset_caugi_registry()
+  on.exit(reset_caugi_registry(), add = TRUE)
+
+  register_caugi_edge(
+    glyph = "+++",
+    tail_mark = "tail",
+    head_mark = "tail",
+    class = "undirected",
+    symmetric = TRUE
+  )
+
+  cg <- caugi(from = "A", edge = "+++", to = "B", class = "UNKNOWN")
+  dot <- to_dot(cg)
+  expect_true(grepl("A -> B;", as.character(dot), fixed = TRUE))
+
+  expect_identical(caugi:::format_dot_value(42), "42")
 })

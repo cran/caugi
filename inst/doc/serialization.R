@@ -39,13 +39,6 @@ cat(substr(json_str, 1, 200), "...\n")
 cg_from_json <- caugi_deserialize(json_str)
 
 ## -----------------------------------------------------------------------------
-# Read without building the Rust graph structure
-cg_lazy <- read_caugi(tmp, lazy = TRUE)
-
-# Build when needed
-cg_lazy <- build(cg_lazy)
-
-## -----------------------------------------------------------------------------
 write_caugi(cg, tmp,
   comment = "Mediation model from Study A",
   tags = c("mediation", "study-a", "validated")

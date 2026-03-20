@@ -31,10 +31,8 @@ moralize <- function(cg) {
     stop("moralize() can only be applied to DAGs.", call. = FALSE)
   }
 
-  cg <- build(cg)
-  moralized_ptr <- moralize_ptr(cg@ptr)
-  moralized_cg <- .view_to_caugi(moralized_ptr, node_names = cg@nodes$name)
-  moralized_cg
+  moralized_session <- rs_moralize(cg@session)
+  .session_to_caugi(moralized_session, node_names = cg@nodes$name)
 }
 
 #' @title Get the skeleton of a graph
@@ -61,10 +59,54 @@ moralize <- function(cg) {
 #' @export
 skeleton <- function(cg) {
   is_caugi(cg, throw_error = TRUE)
-  cg <- build(cg)
-  skeleton_ptr <- skeleton_ptr(cg@ptr)
-  skeleton_cg <- .view_to_caugi(skeleton_ptr, node_names = cg@nodes$name)
-  skeleton_cg
+  skeleton_session <- rs_skeleton(cg@session)
+  .session_to_caugi(skeleton_session, node_names = cg@nodes$name)
+}
+
+#' @title Apply Meek closure to a PDAG
+#'
+#' @description
+#' Applies Meek's orientation rules (R1--R4) repeatedly to a PDAG until no more
+#' orientations are implied.
+#'
+#' @param cg A `caugi` object. Must be PDAG-compatible.
+#'
+#' @returns A `caugi` object of class `"PDAG"` that is closed under Meek's
+#'   rules.
+#'
+#' @references
+#' C. Meek (1995). Causal inference and causal explanation with background
+#' knowledge. In \emph{Proceedings of the Eleventh Conference on Uncertainty in
+#' Artificial Intelligence (UAI-95)}, pp. 403--411. Morgan Kaufmann.
+#'
+#' @examples
+#' pdag <- caugi(
+#'   A %---% B,
+#'   A %-->% C,
+#'   C %-->% B,
+#'   class = "PDAG"
+#' )
+#' mpdag <- meek_closure(pdag)
+#' edges(mpdag)
+#'
+#' @family operations
+#' @concept operations
+#'
+#' @export
+meek_closure <- function(cg) {
+  is_caugi(cg, throw_error = TRUE)
+
+  if (!is_pdag(cg, force_check = TRUE)) {
+    stop("meek_closure() can only be applied to PDAGs.", call. = FALSE)
+  }
+
+  closed_session <- rs_meek_closure(cg@session)
+  closed_cg <- .session_to_caugi(closed_session, node_names = cg@nodes$name)
+  if (is_dag(closed_cg)) {
+    return(mutate_caugi(closed_cg, "DAG"))
+  } else {
+    return(closed_cg)
+  }
 }
 
 #' @title Project latent variables from a DAG to an ADMG
@@ -120,7 +162,6 @@ latent_project <- function(cg, latents) {
     stop("`latents` must be a character vector of node names.", call. = FALSE)
   }
 
-  cg <- build(cg)
   node_names <- cg@nodes$name
 
   # Validate latent names exist
@@ -136,18 +177,17 @@ latent_project <- function(cg, latents) {
   }
 
   # Get 0-based indices for latent nodes
-  latent_indices <- cg@name_index_map$mget(latents)
-  latent_indices <- as.integer(unlist(latent_indices, use.names = FALSE))
+  latent_indices <- rs_indices_of(cg@session, latents)
 
   # Get observed node names (preserving order)
   is_latent <- node_names %in% latents
   observed_names <- node_names[!is_latent]
 
   # Call Rust function
-  projected_ptr <- latent_project_ptr(cg@ptr, latent_indices)
+  projected_session <- rs_latent_project(cg@session, latent_indices)
 
   # Convert result back to caugi
-  .view_to_caugi(projected_ptr, node_names = observed_names)
+  .session_to_caugi(projected_session, node_names = observed_names)
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -180,7 +220,6 @@ latent_project <- function(cg, latents) {
 #' @export
 mutate_caugi <- function(cg, class) {
   is_caugi(cg, throw_error = TRUE)
-  cg <- build(cg)
   old_class <- cg@graph_class
 
   if (old_class == class) {
@@ -203,21 +242,22 @@ mutate_caugi <- function(cg, class) {
   )
 
   if (!is_mutation_possible) {
-    stop(paste0(
-      "Cannot convert caugi of class '",
-      old_class,
-      "' to '",
-      class,
-      "'.",
+    stop(
+      paste0(
+        "Cannot convert caugi of class '",
+        old_class,
+        "' to '",
+        class,
+        "'."
+      ),
       call. = FALSE
-    ))
+    )
   } else {
     return(caugi(
       nodes = nodes(cg),
       edges_df = edges(cg),
       class = class,
-      simple = TRUE,
-      build = TRUE
+      simple = TRUE
     ))
   }
 }
@@ -249,7 +289,6 @@ mutate_caugi <- function(cg, class) {
 #' @export
 exogenize <- function(cg, nodes) {
   is_caugi(cg, throw_error = TRUE)
-  cg <- build(cg)
 
   if (cg@graph_class != "DAG") {
     stop(
@@ -290,8 +329,7 @@ exogenize <- function(cg, nodes) {
           cg,
           from = grid$from,
           edge = rep("-->", nrow(grid)),
-          to = grid$to,
-          inplace = TRUE
+          to = grid$to
         )
       }
     }
@@ -301,9 +339,175 @@ exogenize <- function(cg, nodes) {
       cg <- remove_edges(
         cg,
         from = pa_u,
-        to = rep(u, length(pa_u)),
-        inplace = TRUE
+        to = rep(u, length(pa_u))
       )
+    }
+  }
+
+  cg
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────── Normalize latent structure (DAG) ─────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+#' @title Normalize latent structure in a DAG
+#'
+#' @description
+#' Normalizes a DAG with latent variables while preserving the induced marginal
+#' model over the observed variables. This is done by:
+#'
+#' (1) exogenizing all latent nodes (making them parentless),
+#' (2) removing exogenous latent nodes with at most one child, and
+#' (3) removing exogenous latent nodes whose child sets are strict subsets of
+#'     another latent node's child set.
+#'
+#' This corresponds to Lemmas 1--3 in Evans (2016).
+#'
+#' @param cg A `caugi` object of class "DAG".
+#' @param latents Character vector of latent node names.
+#'
+#' @returns A `caugi` object of class "DAG".
+#'
+#' @references
+#' Evans, R. J. (2016). Graphs for margins of Bayesian networks. Scandinavian
+#' Journal of Statistics, 43(3), 625–648. \doi{10.1111/sjos.12194}
+#'
+#' @examples
+#' dag <- caugi(
+#'   A %-->% U,
+#'   U %-->% X + Y,
+#'   class = "DAG"
+#' )
+#'
+#' normalize_latent_structure(dag, latents = "U")
+#'
+#' # More complex example with two latents and nested child sets
+#' dag2 <- caugi(
+#'   A %-->% U,
+#'   U %-->% X + Y + Z,
+#'   U2 %-->% Y + Z,
+#'   class = "DAG"
+#' )
+#' normalize_latent_structure(dag2, c("U", "U2"))
+#'
+#' @family operations
+#' @concept operations
+#'
+#' @export
+normalize_latent_structure <- function(cg, latents) {
+  is_caugi(cg, throw_error = TRUE)
+
+  if (!is_dag(cg)) {
+    stop(
+      "normalize_latent_structure() can only be applied to DAGs.",
+      call. = FALSE
+    )
+  }
+
+  if (!is.character(latents)) {
+    stop("`latents` must be a character vector of node names.", call. = FALSE)
+  }
+
+  latents <- unique(latents)
+
+  if (length(latents) == 0L) {
+    return(cg)
+  }
+
+  node_names <- nodes(cg)$name
+  missing_latents <- setdiff(latents, node_names)
+
+  if (length(missing_latents) > 0L) {
+    stop(
+      paste0(
+        "Unknown latent node(s): ",
+        paste(missing_latents, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  cg <- exogenize(cg, nodes = latents)
+
+  changed <- TRUE
+
+  while (changed) {
+    changed <- FALSE
+    current_latents <- intersect(latents, nodes(cg)$name)
+
+    if (length(current_latents) == 0L) {
+      break
+    }
+
+    # Lemma 3: remove exogenous latents with <= 1 child
+    child_counts <- vapply(
+      current_latents,
+      function(l) {
+        ch <- children(cg, l)
+
+        if (is.null(ch)) {
+          0L
+        } else {
+          length(ch)
+        }
+      },
+      integer(1)
+    )
+
+    to_drop <- current_latents[child_counts <= 1L]
+
+    if (length(to_drop) > 0L) {
+      cg <- remove_nodes(cg, name = to_drop)
+      changed <- TRUE
+      next
+    }
+
+    # Lemma 2: remove nested child sets among exogenous latents
+    current_latents <- intersect(latents, nodes(cg)$name)
+
+    if (length(current_latents) < 2L) {
+      break
+    }
+
+    child_sets <- lapply(
+      current_latents,
+      function(l) {
+        ch <- children(cg, l)
+        if (is.null(ch)) {
+          character(0)
+        } else {
+          sort(unique(ch))
+        }
+      }
+    )
+
+    drop_one <- NULL
+
+    for (i in seq_len(length(current_latents) - 1L)) {
+      for (j in (i + 1L):length(current_latents)) {
+        ch_i <- child_sets[[i]]
+        ch_j <- child_sets[[j]]
+
+        if (length(ch_i) < length(ch_j) && all(ch_i %in% ch_j)) {
+          drop_one <- current_latents[i]
+          break
+        }
+
+        if (length(ch_j) < length(ch_i) && all(ch_j %in% ch_i)) {
+          drop_one <- current_latents[j]
+          break
+        }
+      }
+
+      if (!is.null(drop_one)) {
+        break
+      }
+    }
+
+    if (!is.null(drop_one)) {
+      cg <- remove_nodes(cg, name = drop_one)
+      changed <- TRUE
     }
   }
 
@@ -312,7 +516,7 @@ exogenize <- function(cg, nodes) {
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# ─────────────────────────────Marginalize and condition ──────────────────────
+# ────────────────────────── Marginalize and condition ─────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────
 
 #' @importFrom utils combn
@@ -496,7 +700,7 @@ condition_marginalize <- function(cg, cond_vars = NULL, marg_vars = NULL) {
       conditioning_set <- NULL
     }
 
-    if (m_separated(cg, node_a, node_b, Z = conditioning_set)) {
+    if (m_separated(cg, X = node_a, Y = node_b, Z = conditioning_set)) {
       # Found a set that m-separates them: no edge needed
       return(FALSE)
     }
@@ -553,4 +757,107 @@ condition_marginalize <- function(cg, cond_vars = NULL, marg_vars = NULL) {
     # b is in anterior of a: b --> a
     data.table::data.table(from = node_b, edge = "-->", to = node_a)
   }
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────── Extend a PDAG to a DAG ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+#' @title Check if two nodes are connected by an edge
+#' @keywords internal
+#' @noRd
+are_connected <- function(cg, u, v) {
+  v %in% neighbors(cg, u, mode = "all")
+}
+
+#' @title Extend a PDAG to a DAG using the Dor-Tarsi Algorithm
+#' @description
+#' Given a Partially Directed Acyclic Graph (PDAG), this function attempts to
+#' extend it to a Directed Acyclic Graph (DAG) by orienting the undirected edges
+#' while preserving acyclicity and all existing directed edges.
+#' The procedure implements the Dor-Tarsi algorithm.
+#'
+#' If the PDAG cannot be consistently extended to a DAG, the function will raise an error.
+#'
+#' @param PDAG A `caugi` object of class `"PDAG"`.
+#'
+#' @returns A `caugi` object of class `"DAG"` representing a DAG extension
+#' of the input PDAG.
+#'
+#' @family operations
+#' @concept operations
+#'
+#' @examples
+#' PDAG <- caugi(
+#'   A %---% B,
+#'   B %---% C,
+#'   class = "PDAG"
+#' )
+#' DAG <- dag_from_pdag(PDAG)
+#' edges(DAG)
+#'
+#' @references
+#' Dor, D., & Tarsi, M. (1992). "A simple algorithm to construct a consistent
+#' extension of a partially directed acyclic graph".
+#'
+#' @export
+dag_from_pdag <- function(PDAG) {
+  if (PDAG@graph_class != "PDAG") {
+    stop("Input must be a caugi PDAG graph")
+  }
+
+  output_graph <- PDAG
+  temp_graph <- PDAG
+
+  nodes_left <- nodes(temp_graph)$name
+
+  while (length(nodes_left) > 0) {
+    found_sink <- FALSE
+
+    for (x in nodes_left) {
+      all_edges <- edges(temp_graph)
+
+      # Condition (a): no outgoing directed edges from x
+      if (length(children(temp_graph, x)) > 0) {
+        next
+      }
+
+      # Condition (b): undirected neighbors all connected
+      undirected_neighbors <- neighbors(temp_graph, x, mode = "undirected")
+
+      if (length(undirected_neighbors) > 1) {
+        neighbor_pairs <- combn(undirected_neighbors, 2, simplify = FALSE)
+        if (
+          any(
+            !sapply(neighbor_pairs, function(p) {
+              are_connected(temp_graph, p[1], p[2])
+            })
+          )
+        ) {
+          next
+        }
+      }
+
+      # x is a valid sink
+      found_sink <- TRUE
+
+      # Orient all undirected edges toward x in output_graph
+      if (length(undirected_neighbors) > 0) {
+        output_graph <- set_edges(
+          output_graph,
+          from = undirected_neighbors,
+          to = rep(x, length(undirected_neighbors)),
+          edge = "-->"
+        )
+      }
+
+      # Remove x from working graph
+      temp_graph <- do.call(remove_nodes, list(temp_graph, as.name(x)))
+      nodes_left <- setdiff(nodes_left, x)
+      break
+    }
+
+    if (!found_sink) stop("PDAG cannot be extended to a DAG (Dor-Tarsi failed)")
+  }
+
+  mutate_caugi(output_graph, "DAG")
 }

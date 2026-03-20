@@ -31,8 +31,8 @@ or nodes to add using unquoted names, vectors via \code{c()}, or \code{+} compos
 
 \item{to}{Character vector of target node names. Default is \code{NULL}.}
 
-\item{inplace}{Logical, whether to modify the graph inplace or not.
-If \code{FALSE} (default), a copy of the \code{caugi} is made and modified.}
+\item{inplace}{DEPRECATED This parameter is deprecated and will be ignored.
+Graphs are always modified via copy-on-write.}
 
 \item{name}{Character vector of node names. Default is \code{NULL}.}
 }
@@ -73,10 +73,8 @@ cg <- cg |>
 cg <- remove_edges(cg, B \%---\% C) |> # A --> B, C, D, E
   remove_nodes(c("C", "D", "E")) # A --> B
 
-# verbs do not build the Rust backend
-cg@built # FALSE
-build(cg)
-cg@built # TRUE
+# Graphs are now built lazily when needed
+parents(cg, "B") # triggers compilation
 
 }
 \seealso{

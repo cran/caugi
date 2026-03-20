@@ -8,7 +8,7 @@
   cg,
   nodes = NULL,
   edges = NULL,
-  action = c("add", "remove"),
+  action = c("add", "remove", "replace"),
   inplace = FALSE
 )
 }
@@ -20,15 +20,16 @@
 \item{edges}{A \code{data.frame} with columns \code{from}, \code{edge}, \code{to} for edges to
 add/remove.}
 
-\item{action}{One of \code{"add"} or \code{"remove"}.}
+\item{action}{One of \code{"add"}, \code{"remove"}, or \code{"replace"}.}
 
-\item{inplace}{Logical, whether to modify the graph inplace or not.}
+\item{inplace}{DEPRECATED Ignored. Kept for backward compatibility.}
 }
 \value{
 The updated \code{caugi} object.
 }
 \description{
-Internal helper to add or remove nodes/edges and mark graph as
-not built.
+Internal helper to add or remove nodes/edges. Rust is the
+source of truth - we get current state from Rust, modify it, and build
+a new session.
 }
 \keyword{internal}
