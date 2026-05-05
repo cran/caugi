@@ -108,6 +108,36 @@ test_that("moralize fails on non-DAGs", {
   )
 })
 
+############# NetworkX tests for moralization #############
+# https://github.com/networkx/networkx/blob/main/networkx/algorithms/tests/test_moral.py
+
+test_that("NetworkX moralize test 1", {
+  cg <- caugi(
+    A %-->% B,
+    C %-->% B,
+    D %-->% A,
+    D %-->% E,
+    F %-->% E,
+    G %-->% E,
+    class = "DAG"
+  )
+  moral_cg <- moralize(cg)
+  expect_equal(moral_cg@graph_class, "UG")
+
+  has_edge <- function(edges, u, v) {
+    any(
+      (edges$from == u & edges$to == v) |
+        (edges$from == v & edges$to == u)
+    )
+  }
+
+  expect_true(has_edge(moral_cg@edges, "A", "C"))
+  expect_true(has_edge(moral_cg@edges, "D", "F"))
+  expect_true(has_edge(moral_cg@edges, "F", "G"))
+  expect_true(has_edge(moral_cg@edges, "D", "G"))
+  expect_false(has_edge(moral_cg@edges, "A", "E"))
+})
+
 # ──────────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────── Mutation ───────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────
@@ -205,6 +235,30 @@ test_that("mutate_caugi works from DAG to PDAG", {
   expect_equal(nodes(cg_pdag), nodes(cg_dag))
 })
 
+test_that("mutate_caugi supports MPDAG target when valid", {
+  cg_pdag <- caugi(
+    A %---% B,
+    A %-->% C,
+    B %-->% C,
+    class = "PDAG"
+  )
+  expect_true(is_mpdag(cg_pdag))
+  cg_mpdag <- mutate_caugi(cg_pdag, class = "MPDAG")
+  expect_equal(cg_mpdag@graph_class, "MPDAG")
+  expect_equal(edges(cg_mpdag), edges(cg_pdag))
+
+  cg_not_mpdag <- caugi(
+    A %-->% B,
+    B %---% C,
+    class = "PDAG"
+  )
+  expect_false(is_mpdag(cg_not_mpdag))
+  expect_error(
+    mutate_caugi(cg_not_mpdag, class = "MPDAG"),
+    "Cannot convert caugi"
+  )
+})
+
 test_that("mutate_caugi works from PDAG to DAG if PDAG is a DAG", {
   cg_pdag <- caugi(
     A %-->% B,
@@ -228,6 +282,10 @@ test_that("mutate_caugi works on empty caugi", {
   cg_empty_ug <- mutate_caugi(cg_empty, class = "UG")
   expect_equal(length(cg_empty_ug), 0)
   expect_equal(cg_empty_ug@graph_class, "UG")
+
+  cg_empty_mpdag <- mutate_caugi(cg_empty, class = "MPDAG")
+  expect_equal(length(cg_empty_mpdag), 0)
+  expect_equal(cg_empty_mpdag@graph_class, "MPDAG")
 })
 
 test_that("mutate_caugi doesn't change class if old class is equal to new class", {
@@ -512,6 +570,35 @@ test_that("exogenize agrees with exogenous query", {
   )
 })
 
+test_that("exogenize supports multiple nodes", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    C %-->% D,
+    class = "DAG"
+  )
+  exogenized_cg <- exogenize(cg, nodes = c("B", "C"))
+
+  expect_null(parents(exogenized_cg, "B"))
+  expect_null(parents(exogenized_cg, "C"))
+  expect_setequal(parents(exogenized_cg, "D"), c("B", "C", "A"))
+})
+
+test_that("exogenize handles duplicate node inputs", {
+  cg <- caugi(
+    A %-->% B,
+    B %-->% C,
+    class = "DAG"
+  )
+
+  exo_once <- exogenize(cg, nodes = "B")
+  exo_twice <- exogenize(cg, nodes = c("B", "B"))
+
+  actual_once <- edges(exo_once)[order(from, to, edge)]
+  actual_twice <- edges(exo_twice)[order(from, to, edge)]
+  expect_equal(actual_once, actual_twice)
+})
+
 test_that("exogenize fails with non-simple graphs", {
   cg <- caugi(
     A %-->% B,
@@ -637,7 +724,7 @@ test_that("dag_from_pdag errors on non-PDAG input", {
     B %-->% C,
     class = "DAG"
   )
-  expect_error(dag_from_pdag(cg), "Input must be a caugi PDAG graph")
+  expect_error(dag_from_pdag(cg), "Input must be a caugi PDAG/MPDAG graph")
 })
 
 test_that("dag_from_pdag errors if PDAG cannot be extended to a DAG", {
@@ -913,15 +1000,24 @@ test_that("condition_marginalize and helper branches are covered", {
     "must be the same length"
   )
 
-  expect_type(
+  expect_true(
     caugi:::.not_m_separated_for_all_subsets(
       cg = cg2,
       node_a = "A",
       node_b = "C",
       other_nodes = character(0),
       cond_vars = character(0)
-    ),
-    "logical"
+    )
+  )
+
+  expect_false(
+    caugi:::.not_m_separated_for_all_subsets(
+      cg = cg2,
+      node_a = "A",
+      node_b = "C",
+      other_nodes = "B",
+      cond_vars = character(0)
+    )
   )
 
   edge_rev <- caugi:::.edge_type_from_anteriors(
@@ -933,4 +1029,139 @@ test_that("condition_marginalize and helper branches are covered", {
   expect_identical(edge_rev$from, "B")
   expect_identical(edge_rev$edge, "-->")
   expect_identical(edge_rev$to, "A")
+})
+
+test_that("not_m_separated helper matches R reference across subset scenarios", {
+  helper_reference <- function(cg, node_a, node_b, other_nodes, cond_vars) {
+    n_other <- length(other_nodes)
+    subsets <- if (n_other == 0L) {
+      list(NULL)
+    } else {
+      c(
+        list(other_nodes),
+        if (n_other > 1L) {
+          unlist(
+            lapply(
+              seq_len(n_other - 1L),
+              function(k) combn(other_nodes, n_other - k, simplify = FALSE)
+            ),
+            recursive = FALSE
+          )
+        },
+        list(NULL)
+      )
+    }
+
+    for (subset in subsets) {
+      z <- c(cond_vars, subset)
+      if (length(z) == 0L) {
+        z <- NULL
+      }
+      if (m_separated(cg, X = node_a, Y = node_b, Z = z)) {
+        return(FALSE)
+      }
+    }
+    TRUE
+  }
+
+  # 1) Separation found only for full subset.
+  # A <- B -> C and A <- D -> C: both B and D are required to block all paths.
+  g_full <- caugi(B %-->% A + C, D %-->% A + C, class = "DAG")
+  expect_true(m_separated(g_full, X = "A", Y = "C", Z = c("B", "D")))
+  expect_false(m_separated(g_full, X = "A", Y = "C", Z = "B"))
+  expect_false(m_separated(g_full, X = "A", Y = "C", Z = "D"))
+
+  rust_full <- caugi:::.not_m_separated_for_all_subsets(
+    g_full,
+    node_a = "A",
+    node_b = "C",
+    other_nodes = c("B", "D"),
+    cond_vars = character(0)
+  )
+  ref_full <- helper_reference(
+    g_full,
+    node_a = "A",
+    node_b = "C",
+    other_nodes = c("B", "D"),
+    cond_vars = character(0)
+  )
+  expect_identical(rust_full, ref_full)
+
+  # 2) Separation found only for an intermediate subset size.
+  # A <- B -> C is blocked by conditioning on B, but conditioning on D opens A->E<-C via E->D.
+  g_mid <- caugi(B %-->% A + C, A %-->% E, C %-->% E, E %-->% D, class = "DAG")
+  expect_true(m_separated(g_mid, X = "A", Y = "C", Z = "B"))
+  expect_false(m_separated(g_mid, X = "A", Y = "C", Z = c("B", "D")))
+
+  rust_mid <- caugi:::.not_m_separated_for_all_subsets(
+    g_mid,
+    node_a = "A",
+    node_b = "C",
+    other_nodes = c("B", "D"),
+    cond_vars = character(0)
+  )
+  ref_mid <- helper_reference(
+    g_mid,
+    node_a = "A",
+    node_b = "C",
+    other_nodes = c("B", "D"),
+    cond_vars = character(0)
+  )
+  expect_identical(rust_mid, ref_mid)
+
+  # 3) Separation found for cond_vars alone.
+  g_cond <- caugi(S %-->% A + C, T %-->% A, class = "DAG")
+  expect_true(m_separated(g_cond, X = "A", Y = "C", Z = "S"))
+
+  rust_cond <- caugi:::.not_m_separated_for_all_subsets(
+    g_cond,
+    node_a = "A",
+    node_b = "C",
+    other_nodes = "T",
+    cond_vars = "S"
+  )
+  ref_cond <- helper_reference(
+    g_cond,
+    node_a = "A",
+    node_b = "C",
+    other_nodes = "T",
+    cond_vars = "S"
+  )
+  expect_identical(rust_cond, ref_cond)
+
+  # Additional parity checks on small random DAGs (all subsets feasible).
+  set.seed(123)
+  for (i in seq_len(20L)) {
+    g <- generate_graph(n = 8, m = 8, class = "DAG")
+    nn <- nodes(g)$name
+    pair <- sample(nn, size = 2, replace = FALSE)
+    rest <- setdiff(nn, pair)
+    other <- sample(rest, size = sample.int(3L, 1), replace = FALSE)
+    cond_pool <- setdiff(rest, other)
+    cond <- if (length(cond_pool) > 0L) {
+      sample(
+        cond_pool,
+        size = sample.int(min(2L, length(cond_pool)), 1) - 1L,
+        replace = FALSE
+      )
+    } else {
+      character(0)
+    }
+
+    rust <- caugi:::.not_m_separated_for_all_subsets(
+      g,
+      node_a = pair[[1]],
+      node_b = pair[[2]],
+      other_nodes = other,
+      cond_vars = cond
+    )
+    ref <- helper_reference(
+      g,
+      node_a = pair[[1]],
+      node_b = pair[[2]],
+      other_nodes = other,
+      cond_vars = cond
+    )
+    expect_identical(rust, ref)
+  }
 })

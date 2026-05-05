@@ -1,6 +1,6 @@
 Package: caugi
 Title: Causal Graph Interface
-Version: 1.1.0
+Version: 1.2.0
 Authors@R: c(
     person(
       given = "Frederik",
@@ -50,11 +50,11 @@ RoxygenNote: 7.3.3
 SystemRequirements: Cargo (Rust's package manager), rustc >= 1.80.0, xz
 Config/Needs/website: rmarkdown
 NeedsCompilation: yes
-Packaged: 2026-03-20 12:56:55 UTC; jola
+Packaged: 2026-05-05 14:03:55 UTC; jola
 Author: Frederik Fabricius-Bjerre [aut, cre, cph],
   Johan Larsson [aut] (ORCID: <https://orcid.org/0000-0002-4029-5945>),
   Michael Sachs [aut] (ORCID: <https://orcid.org/0000-0002-1279-8676>),
   Bjarke Hautop Kristensen [aut]
 Maintainer: Frederik Fabricius-Bjerre <frederik@fabriciusbjerre.dk>
 Repository: CRAN
-Date/Publication: 2026-03-20 13:40:08 UTC
+Date/Publication: 2026-05-05 14:56:15 UTC

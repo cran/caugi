@@ -1,3 +1,39 @@
+# caugi 1.2.0
+
+## New Features
+
+- Add `caugi_layout_circle()` and a `"circle"` method for `caugi_layout()` that
+  places nodes evenly along the perimeter of a circle (#108).
+- Add `list_caugi_edges()` function to list all available edge types.
+- Add first-class `"MPDAG"` graph class support across constructor, class
+  mutation, and class resolution. `class = "AUTO"` now resolves Meek-closed
+  PDAGs to `"MPDAG"`.
+
+## Improvements
+
+- Improved performance of all queries. Speedups are more significant on larger
+  graphs, but even on small graphs, queries are roughly 5x faster.
+- `exogenize()` is now implemented in Rust for DAGs, which reduces overhead on larger graphs.
+- `normalize_latent_structure()` is now implemented in Rust for DAGs for faster latent normalization workflows.
+- `minimal_d_separator()` is renamed to `minimal_separator()` and now supports
+  ADMG and AG inputs (previously DAG-only), returning a minimal m-separator.
+  Implemented via the unified linear-time algorithm of van der Zander &
+  Liśkiewicz (UAI 2020). The old name `minimal_d_separator()` remains as a
+  deprecated alias.
+
+## Bug Fixes
+
+- Fix `m_separated()` on ADMGs: moralization now marries every pair in
+  `pa(v) ∪ sp(v)`, not just `pa(v)`. The old code missed moral edges from
+  bidirected co-parents and gave false positives (e.g. claimed `Z ⊥ Y | X` for
+  `Z -> X -> Y`, `X <-> Y`).
+- Fix `is_valid_adjustment_admg()` and `all_adjustment_sets_admg()` to verify
+  the GAC's m-separation condition in the proper backdoor graph rather than
+  via a per-neighbour decomposition. The old check trivially accepted neighbours
+  of `X` that were themselves in `Z`, so it falsely classified `{C}` as a valid
+  adjustment set in the M-bias ADMG `C -> X, C <-> X, C -> Y, C <-> Y, X -> Y`
+  (#277).
+
 # caugi 1.1.0
 
 ## New Features

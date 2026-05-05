@@ -234,6 +234,7 @@ mutate_caugi <- function(cg, class) {
     class,
     "DAG" = is_dag(cg),
     "PDAG" = is_pdag(cg),
+    "MPDAG" = is_mpdag(cg),
     "UG" = is_ug(cg),
     "ADMG" = is_admg(cg),
     "AG" = is_ag(cg),
@@ -312,39 +313,11 @@ exogenize <- function(cg, nodes) {
     if (!u %in% all_nodes) {
       stop(paste0("Node ", u, " not in graph."), call. = FALSE)
     }
-
-    pa_u <- parents(cg, u) # NULL or character vector
-    ch_u <- children(cg, u) # NULL or character vector
-
-    # Step (i): add edges from every parent of u to every child of u
-    if (!is.null(pa_u) && !is.null(ch_u)) {
-      # cross-product of pa(u) x ch(u)
-      grid <- data.table::CJ(from = pa_u, to = ch_u, unique = TRUE)
-
-      # Avoid self-loops (l -> l)
-      grid <- grid[from != to]
-
-      if (nrow(grid) > 0L) {
-        cg <- add_edges(
-          cg,
-          from = grid$from,
-          edge = rep("-->", nrow(grid)),
-          to = grid$to
-        )
-      }
-    }
-
-    # Step (ii): delete incoming edges into u (l -> u)
-    if (!is.null(pa_u) && length(pa_u) > 0L) {
-      cg <- remove_edges(
-        cg,
-        from = pa_u,
-        to = rep(u, length(pa_u))
-      )
-    }
   }
 
-  cg
+  node_indices <- .nodes_to_indices(cg, nodes)
+  exogenized_session <- rs_exogenize(cg@session, node_indices)
+  .session_to_caugi(exogenized_session, node_names = all_nodes)
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -428,90 +401,12 @@ normalize_latent_structure <- function(cg, latents) {
     )
   }
 
-  cg <- exogenize(cg, nodes = latents)
-
-  changed <- TRUE
-
-  while (changed) {
-    changed <- FALSE
-    current_latents <- intersect(latents, nodes(cg)$name)
-
-    if (length(current_latents) == 0L) {
-      break
-    }
-
-    # Lemma 3: remove exogenous latents with <= 1 child
-    child_counts <- vapply(
-      current_latents,
-      function(l) {
-        ch <- children(cg, l)
-
-        if (is.null(ch)) {
-          0L
-        } else {
-          length(ch)
-        }
-      },
-      integer(1)
-    )
-
-    to_drop <- current_latents[child_counts <= 1L]
-
-    if (length(to_drop) > 0L) {
-      cg <- remove_nodes(cg, name = to_drop)
-      changed <- TRUE
-      next
-    }
-
-    # Lemma 2: remove nested child sets among exogenous latents
-    current_latents <- intersect(latents, nodes(cg)$name)
-
-    if (length(current_latents) < 2L) {
-      break
-    }
-
-    child_sets <- lapply(
-      current_latents,
-      function(l) {
-        ch <- children(cg, l)
-        if (is.null(ch)) {
-          character(0)
-        } else {
-          sort(unique(ch))
-        }
-      }
-    )
-
-    drop_one <- NULL
-
-    for (i in seq_len(length(current_latents) - 1L)) {
-      for (j in (i + 1L):length(current_latents)) {
-        ch_i <- child_sets[[i]]
-        ch_j <- child_sets[[j]]
-
-        if (length(ch_i) < length(ch_j) && all(ch_i %in% ch_j)) {
-          drop_one <- current_latents[i]
-          break
-        }
-
-        if (length(ch_j) < length(ch_i) && all(ch_j %in% ch_i)) {
-          drop_one <- current_latents[j]
-          break
-        }
-      }
-
-      if (!is.null(drop_one)) {
-        break
-      }
-    }
-
-    if (!is.null(drop_one)) {
-      cg <- remove_nodes(cg, name = drop_one)
-      changed <- TRUE
-    }
-  }
-
-  cg
+  latent_indices <- .nodes_to_indices(cg, latents)
+  normalized_session <- rs_normalize_latent_structure(
+    cg@session,
+    latent_indices
+  )
+  .session_to_caugi(normalized_session)
 }
 
 
@@ -670,45 +565,25 @@ condition_marginalize <- function(cg, cond_vars = NULL, marg_vars = NULL) {
   other_nodes,
   cond_vars
 ) {
-  n_other <- length(other_nodes)
-
-  # Generate all subsets of other_nodes
-  subsets <- if (n_other == 0L) {
-    list(NULL)
+  node_idx <- .nodes_to_indices(cg, c(node_a, node_b))
+  other_idx <- if (length(other_nodes) == 0L) {
+    integer(0)
   } else {
-    # Build subsets from largest to smallest (often finds separation faster)
-    c(
-      list(other_nodes),
-      if (n_other > 1L) {
-        unlist(
-          lapply(
-            seq_len(n_other - 1L),
-            function(k) combn(other_nodes, n_other - k, simplify = FALSE)
-          ),
-          recursive = FALSE
-        )
-      },
-      list(NULL)
-    )
+    .nodes_to_indices(cg, other_nodes)
+  }
+  cond_idx <- if (length(cond_vars) == 0L) {
+    integer(0)
+  } else {
+    .nodes_to_indices(cg, cond_vars)
   }
 
-  # Check each conditioning set
-
-  for (subset in subsets) {
-    conditioning_set <- c(cond_vars, subset)
-    if (length(conditioning_set) == 0L) {
-      conditioning_set <- NULL
-    }
-
-    if (m_separated(cg, X = node_a, Y = node_b, Z = conditioning_set)) {
-      # Found a set that m-separates them: no edge needed
-      return(FALSE)
-    }
-  }
-
-  # Not m-separated for any conditioning set: edge is required
-
-  TRUE
+  rs_not_m_separated_for_all_subsets(
+    cg@session,
+    node_idx[[1]],
+    node_idx[[2]],
+    other_idx,
+    cond_idx
+  )
 }
 
 #' @title
@@ -801,8 +676,8 @@ are_connected <- function(cg, u, v) {
 #'
 #' @export
 dag_from_pdag <- function(PDAG) {
-  if (PDAG@graph_class != "PDAG") {
-    stop("Input must be a caugi PDAG graph")
+  if (!(PDAG@graph_class %in% c("PDAG", "MPDAG"))) {
+    stop("Input must be a caugi PDAG/MPDAG graph")
   }
 
   output_graph <- PDAG

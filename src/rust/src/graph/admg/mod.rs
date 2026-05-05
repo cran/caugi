@@ -608,10 +608,11 @@ mod tests {
         // In this subgraph, 0 and 2 have no connecting edges, so they are m-separated.
         assert!(admg.m_separated(&[0], &[2], &[]));
 
-        // When conditioning on 1, the ancestral subgraph includes An({0,1,2}) = {0,1,2}.
-        // In this subgraph, the bidirected edges create moral edges 0-1 and 1-2.
-        // But node 1 is blocked, so 0 and 2 are still m-separated.
-        assert!(admg.m_separated(&[0], &[2], &[1]));
+        // Conditioning on 1 opens the latent collider: 0 <-> 1 <-> 2 lifts to
+        // 0 <- L1 -> 1 <- L2 -> 2; conditioning on the collider 1 connects 0 and 2.
+        // The moralization marries the spouses of 1 (i.e. {0, 2}), so 0 and 2 are
+        // m-connected given {1}.
+        assert!(!admg.m_separated(&[0], &[2], &[1]));
     }
 
     #[test]
@@ -641,10 +642,10 @@ mod tests {
 
         let admg = Admg::new(Arc::new(b.finalize().unwrap())).unwrap();
 
-        // Z is m-separated from Y given X
-        // The path Z -> X -> Y is blocked by X
-        // The confounding X <-> Y doesn't create a path from Z to Y
-        assert!(admg.m_separated(&[0], &[2], &[1]));
+        // Z is NOT m-separated from Y given X.
+        // Lifting X <-> Y to a latent U with U -> X, U -> Y, the path
+        // Z -> X <- U -> Y has a collider at X; conditioning on X opens it.
+        assert!(!admg.m_separated(&[0], &[2], &[1]));
 
         // Z is not m-separated from Y unconditionally (path Z -> X -> Y)
         assert!(!admg.m_separated(&[0], &[2], &[]));
@@ -953,6 +954,35 @@ mod tests {
 
         // Empty set is NOT valid (backdoor via L)
         assert!(!admg.is_valid_adjustment_set(&[0], &[2], &[]));
+    }
+
+    #[test]
+    fn admg_gac_m_bias_collider_at_confounder_has_no_valid_adjustment() {
+        // Regression for issue #277.
+        // Graph: C -> X, C <-> X, C -> Y, C <-> Y, X -> Y (3 nodes).
+        // Conditioning on C blocks the directed back-door path C -> Y, but the
+        // path X <-> C <-> Y has a collider at C, which conditioning opens.
+        // No subset of {C} is a valid adjustment set.
+        let (reg, dir, bid) = setup();
+        let mut b = GraphBuilder::new_with_registry(3, false, &reg);
+        // 0:C, 1:X, 2:Y
+        b.add_edge(0, 1, dir).unwrap(); // C -> X
+        b.add_edge(0, 1, bid).unwrap(); // C <-> X
+        b.add_edge(0, 2, dir).unwrap(); // C -> Y
+        b.add_edge(0, 2, bid).unwrap(); // C <-> Y
+        b.add_edge(1, 2, dir).unwrap(); // X -> Y
+
+        let admg = Admg::new(Arc::new(b.finalize().unwrap())).unwrap();
+
+        // Empty set is invalid (back-door C -> Y is open).
+        assert!(!admg.is_valid_adjustment_set(&[1], &[2], &[]));
+
+        // {C} is invalid: it blocks C -> Y but opens the X <-> C <-> Y collider.
+        assert!(!admg.is_valid_adjustment_set(&[1], &[2], &[0]));
+
+        // No valid adjustment set exists.
+        let sets = admg.all_adjustment_sets(&[1], &[2], false, 5);
+        assert!(sets.is_empty());
     }
 
     #[test]

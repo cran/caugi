@@ -35,6 +35,17 @@ test_that("is_acyclic forces check when requested", {
   expect_true(is_acyclic(cg, force_check = TRUE))
 })
 
+test_that("is_acyclic fast path handles MPDAG class", {
+  cg <- caugi(
+    A %---% B,
+    A %-->% C,
+    B %-->% C,
+    class = "MPDAG"
+  )
+  expect_true(is_acyclic(cg))
+  expect_true(is_acyclic(cg, force_check = TRUE))
+})
+
 test_that("is_simple reflects declared state and force_check path", {
   cg_simple <- caugi(A %-->% B, class = "DAG")
   expect_true(is_simple(cg_simple))
@@ -272,6 +283,17 @@ test_that("is_mpdag tracks causal-learn style multi-rule progression", {
   expect_setequal(und_A, "B")
   expect_setequal(und_B, c("A", "C"))
   expect_setequal(und_C, "B")
+})
+
+test_that("is_pdag fast path handles MPDAG class", {
+  cg <- caugi(
+    A %---% B,
+    A %-->% C,
+    B %-->% C,
+    class = "MPDAG"
+  )
+  expect_true(is_pdag(cg))
+  expect_true(is_mpdag(cg))
 })
 
 test_that("is_cpdag rejects graphs where Meek R1 would fire", {
@@ -680,21 +702,6 @@ test_that("getter queries builds", {
     expect_true(!is.null(cg@session))
   }
 })
-
-# ──────────────────────────────────────────────────────────────────────────────
-# ────────────────────────────── Getter helpers ────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────
-
-test_that(".getter_output returns data frame with name column", {
-  cg <- caugi(A %-->% B, B %-->% C, class = "DAG")
-  out <- caugi:::.getter_output(cg, c(0L, 2L), c("A", "C"))
-  expect_identical(out[["A"]], "A")
-  expect_identical(out[["C"]], "C")
-
-  out_null <- caugi:::.getter_output(cg, 0L, NULL)
-  expect_equal(out_null, "A")
-})
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────── Subgraph ───────────────────────────────────
@@ -1615,4 +1622,72 @@ test_that("nodes_to_indices errors when session is missing", {
     caugi:::.nodes_to_indices(bad, "A"),
     "Cannot look up indices for empty graph."
   )
+})
+
+
+################# NetworkX tests ##############
+# topological sort tests:
+# https://github.com/networkx/networkx/blob/main/networkx/algorithms/tests/test_dag.py
+# All the other ones are just raising errors, etc, and thus only the below are ported.
+
+test_that("topological sort NetworkX 1 test", {
+  cg <- caugi(A %-->% B + C, B %-->% C, class = "DAG")
+  ts_cg <- topological_sort(cg)
+  expect_equal(ts_cg, c("A", "B", "C"))
+
+  cg <- caugi(A %-->% B + C, C %-->% B, class = "DAG")
+  ts_cg <- topological_sort(cg)
+  expect_equal(ts_cg, c("A", "C", "B"))
+})
+
+test_that("topological sort NetworkX 2 test", {
+  cg <- caugi(A %-->% B, B %-->% C, C %-->% D, D %-->% E, class = "DAG")
+  ts_cg <- topological_sort(cg)
+  expect_equal(ts_cg, c("A", "B", "C", "D", "E"))
+
+  cg <- caugi(A %-->% B + C, C %-->% B, class = "DAG")
+  ts_cg <- topological_sort(cg)
+  expect_equal(ts_cg, c("A", "C", "B"))
+})
+
+
+# ancestors and descendants tests:
+# https://github.com/networkx/networkx/blob/main/networkx/algorithms/tests/test_dag.py
+
+test_that("ancestors NetworkX 1 test", {
+  cg <- caugi(
+    A %-->% B + C,
+    D %-->% B + E,
+    D %-->% C,
+    B %-->% F,
+    E %-->% F,
+    class = "DAG"
+  )
+  ancestors_cg_f <- ancestors(cg, nodes = "F")
+  expect_setequal(ancestors_cg_f, c("A", "B", "D", "E"))
+
+  ancestors_cg_c <- ancestors(cg, nodes = "C")
+  expect_setequal(ancestors_cg_c, c("A", "D"))
+
+  ancestors_cg_a <- ancestors(cg, nodes = "A")
+  expect_null(ancestors_cg_a)
+})
+
+test_that("descendants NetworkX 1 test", {
+  cg <- caugi(
+    A %-->% B + C,
+    D %-->% B + E,
+    D %-->% C,
+    B %-->% F,
+    E %-->% F,
+    class = "DAG"
+  )
+  descendants_cg_a <- descendants(cg, nodes = "A")
+  expect_setequal(descendants_cg_a, c("B", "C", "F"))
+
+  descendants_cg_d <- descendants(cg, nodes = "D")
+  expect_setequal(descendants_cg_d, c("B", "C", "E", "F"))
+
+  descendants_cg_c <- descendants(cg, nodes = "C")
+  expect_null(descendants_cg_c)
 })

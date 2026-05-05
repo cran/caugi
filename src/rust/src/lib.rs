@@ -22,7 +22,7 @@ fn rint_to_u32(x: Rint, field: &str) -> u32 {
     if x.is_na() {
         throw_r_error(format!("NA in `{}`", field));
     }
-    let v = x.inner();
+    let v = x.0;
     if v < 0 {
         throw_r_error(format!(
             "`{}` must be >= 0. Note that the input number from R might have been subtracted with 1.",
@@ -35,7 +35,7 @@ fn rint_to_u8(x: Rint, field: &str) -> u8 {
     if x.is_na() {
         throw_r_error(format!("NA in `{}`", field));
     }
-    let v = x.inner();
+    let v = x.0;
     if !(0..=255).contains(&v) {
         throw_r_error(format!("`{}` must be in 0..=255", field));
     }
@@ -46,6 +46,302 @@ fn rbool_to_bool(x: Rbool, field: &str) -> bool {
         throw_r_error(format!("NA in `{}`", field));
     }
     x.is_true()
+}
+
+fn indices_to_names(indices: &[u32], names: &[String]) -> Robj {
+    indices
+        .iter()
+        .map(|&idx| names[idx as usize].as_str())
+        .collect_robj()
+}
+
+fn indices_to_names_or_null(indices: &[u32], names: &[String]) -> Robj {
+    if indices.is_empty() {
+        ().into_robj()
+    } else {
+        indices_to_names(indices, names)
+    }
+}
+
+fn named_list(values: Vec<Robj>, names: Vec<String>) -> Robj {
+    let mut out = extendr_api::prelude::List::from_values(values);
+    out.set_names(names.iter().map(|s| s.as_str()))
+        .unwrap_or_else(|e| throw_r_error(e.to_string()));
+    out.into_robj()
+}
+
+fn session_ptr_from_cg(cg: &Robj) -> ExternalPtr<GraphSession> {
+    let session = cg
+        .get_attrib(sym!(session))
+        .unwrap_or_else(|| throw_r_error("Input must be a caugi"));
+    if session.is_null() {
+        throw_r_error("Cannot look up indices for empty graph.");
+    }
+    session
+        .try_into()
+        .unwrap_or_else(|_| throw_r_error("Input must be a caugi"))
+}
+
+fn parse_parent_nodes(nodes: Robj) -> Vec<String> {
+    let node_strings: Strings = nodes
+        .try_into()
+        .unwrap_or_else(|_| throw_r_error("`nodes` must be a character vector of node names."));
+
+    let mut out = Vec::with_capacity(node_strings.len());
+    for i in 0..node_strings.len() {
+        let s = node_strings.elt(i);
+        if s.is_na() {
+            throw_r_error("`nodes` cannot contain NA values.");
+        }
+        out.push(s.to_string());
+    }
+    out
+}
+
+fn parse_parent_index0(index: Robj) -> Vec<i32> {
+    if index.is_integer() {
+        let idx_int: Integers = index
+            .try_into()
+            .unwrap_or_else(|_| throw_r_error("`index` must be numeric."));
+        let mut out = Vec::with_capacity(idx_int.len());
+        for x in idx_int.iter() {
+            if x.is_na() {
+                throw_r_error("`index` cannot contain NA values.");
+            }
+            out.push(x.0 - 1);
+        }
+        return out;
+    }
+
+    if index.is_real() {
+        let idx_num: Doubles = index
+            .try_into()
+            .unwrap_or_else(|_| throw_r_error("`index` must be numeric."));
+        let mut out = Vec::with_capacity(idx_num.len());
+        for x in idx_num.iter() {
+            if x.is_na() {
+                throw_r_error("`index` cannot contain NA values.");
+            }
+            out.push((x.0 - 1.0).trunc() as i32);
+        }
+        return out;
+    }
+
+    throw_r_error("`index` must be numeric.");
+}
+
+fn parse_subgraph_keep_index(index: Robj, n: u32) -> Vec<u32> {
+    let mut seen = vec![false; n as usize];
+    let n_i32 = n as i32;
+
+    if index.is_integer() {
+        let idx_int: Integers = index
+            .try_into()
+            .unwrap_or_else(|_| throw_r_error("`index` must be numeric."));
+        let mut out = Vec::with_capacity(idx_int.len());
+        for x in idx_int.iter() {
+            if x.is_na() {
+                throw_r_error("`index` cannot contain NA values.");
+            }
+            let i = x.0;
+            if i < 1 || i > n_i32 {
+                throw_r_error("`index` out of range (1..n).");
+            }
+            let ui = (i - 1) as usize;
+            if seen[ui] {
+                throw_r_error("`nodes`/`index` contains duplicates.");
+            }
+            seen[ui] = true;
+            out.push(ui as u32);
+        }
+        return out;
+    }
+
+    if index.is_real() {
+        let idx_num: Doubles = index
+            .try_into()
+            .unwrap_or_else(|_| throw_r_error("`index` must be numeric."));
+        let mut out = Vec::with_capacity(idx_num.len());
+        for x in idx_num.iter() {
+            if x.is_na() {
+                throw_r_error("`index` cannot contain NA values.");
+            }
+            let i = x.0.trunc() as i32;
+            if i < 1 || i > n_i32 {
+                throw_r_error("`index` out of range (1..n).");
+            }
+            let ui = (i - 1) as usize;
+            if seen[ui] {
+                throw_r_error("`nodes`/`index` contains duplicates.");
+            }
+            seen[ui] = true;
+            out.push(ui as u32);
+        }
+        return out;
+    }
+
+    throw_r_error("`index` must be numeric.");
+}
+
+fn resolve_query_idx0(
+    session: &ExternalPtr<GraphSession>,
+    nodes: Robj,
+    index: Robj,
+    missing_msg: &str,
+) -> Vec<i32> {
+    let nodes_supplied = !nodes.is_null();
+    let index_supplied = !index.is_null();
+
+    if nodes_supplied && index_supplied {
+        throw_r_error("Supply either `nodes` or `index`, not both.");
+    }
+    if !nodes_supplied && !index_supplied {
+        throw_r_error(missing_msg);
+    }
+
+    if nodes_supplied {
+        let node_names = parse_parent_nodes(nodes);
+        session
+            .as_ref()
+            .indices_of(&node_names)
+            .unwrap_or_else(|e| throw_r_error(e))
+            .into_iter()
+            .map(|x| x as i32)
+            .collect()
+    } else {
+        parse_parent_index0(index)
+    }
+}
+
+fn parse_single_logical(value: Robj, err_msg: &str) -> bool {
+    let vals: Logicals = value.try_into().unwrap_or_else(|_| throw_r_error(err_msg));
+    if vals.len() != 1 {
+        throw_r_error(err_msg);
+    }
+    let out = vals.elt(0);
+    if out.is_na() {
+        throw_r_error(err_msg);
+    }
+    out.is_true()
+}
+
+fn parse_open_arg(open: Robj) -> bool {
+    parse_single_logical(open, "`open` must be a single TRUE or FALSE.")
+}
+
+fn parse_neighbors_mode(mode: Robj) -> String {
+    let mode_vals: Strings = mode
+        .try_into()
+        .unwrap_or_else(|_| throw_r_error("`mode` must be a character vector."));
+    if mode_vals.len() != 1 {
+        throw_r_error("`mode` must be length 1.");
+    }
+
+    let raw = mode_vals.elt(0);
+    if raw.is_na() {
+        throw_r_error("`mode` cannot contain NA values.");
+    }
+    let mode_lc = raw.as_ref().to_ascii_lowercase();
+
+    const CHOICES: [&str; 6] = ["all", "in", "out", "undirected", "bidirected", "partial"];
+    if CHOICES.iter().any(|&m| m == mode_lc) {
+        return mode_lc;
+    }
+
+    let matches: Vec<&str> = CHOICES
+        .iter()
+        .copied()
+        .filter(|m| m.starts_with(&mode_lc))
+        .collect();
+    match matches.len() {
+        1 => matches[0].to_string(),
+        0 => throw_r_error("`mode` must be one of: all, in, out, undirected, bidirected, partial."),
+        _ => throw_r_error(
+            "`mode` is ambiguous. Use one of: all, in, out, undirected, bidirected, partial.",
+        ),
+    }
+}
+
+fn parse_district_index1(index: Robj) -> Vec<i32> {
+    let err_msg = "`index` must be numeric without NA.";
+
+    if index.is_integer() {
+        let vals: Integers = index.try_into().unwrap_or_else(|_| throw_r_error(err_msg));
+        let mut out = Vec::with_capacity(vals.len());
+        for x in vals.iter() {
+            if x.is_na() {
+                throw_r_error(err_msg);
+            }
+            out.push(x.0);
+        }
+        return out;
+    }
+
+    if index.is_real() {
+        let vals: Doubles = index.try_into().unwrap_or_else(|_| throw_r_error(err_msg));
+        let mut out = Vec::with_capacity(vals.len());
+        for x in vals.iter() {
+            if x.is_na() {
+                throw_r_error(err_msg);
+            }
+            out.push(x.0.trunc() as i32);
+        }
+        return out;
+    }
+
+    throw_r_error(err_msg);
+}
+
+fn parse_optional_single_logical(value: Robj, err_msg: &str) -> Option<bool> {
+    if value.is_null() {
+        return None;
+    }
+    let vals: Logicals = value.try_into().unwrap_or_else(|_| throw_r_error(err_msg));
+    if vals.len() != 1 {
+        throw_r_error(err_msg);
+    }
+    let out = vals.elt(0);
+    if out.is_na() {
+        throw_r_error(err_msg);
+    }
+    Some(out.is_true())
+}
+
+fn run_relation_query<F>(
+    session: &mut ExternalPtr<GraphSession>,
+    idx0: Vec<i32>,
+    scalar_field: &str,
+    vector_field: &str,
+    mut query: F,
+) -> Robj
+where
+    F: FnMut(&mut ExternalPtr<GraphSession>, u32) -> std::result::Result<Vec<u32>, String>,
+{
+    if idx0.len() <= 1 {
+        if idx0.is_empty() {
+            throw_r_error("Expected non zero length");
+        }
+        let i = rint_to_u32(Rint::from(idx0[0]), scalar_field);
+        if i >= session.as_ref().n() {
+            throw_r_error(format!("Index {} is out of bounds", i));
+        }
+        let v = query(session, i).unwrap_or_else(|e| throw_r_error(e));
+        return indices_to_names_or_null(&v, session.as_ref().names());
+    }
+
+    let mut out: Vec<Robj> = Vec::with_capacity(idx0.len());
+    let mut out_names: Vec<String> = Vec::with_capacity(idx0.len());
+    for ii in idx0 {
+        let i = rint_to_u32(Rint::from(ii), vector_field);
+        if i >= session.as_ref().n() {
+            throw_r_error(format!("Index {} is out of bounds", i));
+        }
+        out_names.push(session.as_ref().names()[i as usize].clone());
+        let v = query(session, i).unwrap_or_else(|e| throw_r_error(e));
+        out.push(indices_to_names_or_null(&v, session.as_ref().names()));
+    }
+
+    named_list(out, out_names)
 }
 
 /// Convert coordinate pairs to R list with x and y vectors.
@@ -123,6 +419,13 @@ fn session_from_view(view: GraphView, node_names: Vec<String>) -> GraphSession {
     session
 }
 
+fn caugi_from_session_ptr(template: &Robj, session: ExternalPtr<GraphSession>) -> Robj {
+    let mut out = template.duplicate();
+    out.set_attrib(sym!(session), Robj::from(session))
+        .unwrap_or_else(|e| throw_r_error(e.to_string()));
+    out
+}
+
 // ── Edge Registry  ────────────────────────────────────────────────────────────────
 
 #[extendr]
@@ -184,7 +487,7 @@ fn edge_registry_code_of(reg: ExternalPtr<EdgeRegistry>, glyphs: Strings) -> Rob
     for g in glyphs.iter() {
         let code = reg
             .as_ref()
-            .code_of(g.as_str())
+            .code_of(g.as_ref())
             .unwrap_or_else(|e| throw_r_error(e.to_string()));
         out.push(code as i32);
     }
@@ -242,6 +545,7 @@ fn graph_builder_add_edges(
 }
 
 // ── Constructors for class views ────────────────────────────────────────────────────────────────
+#[allow(dead_code)]
 fn graphview_new(core: ExternalPtr<CaugiGraph>, class: &str) -> ExternalPtr<GraphView> {
     let core_arc = Arc::new(core.as_ref().clone());
 
@@ -250,8 +554,11 @@ fn graphview_new(core: ExternalPtr<CaugiGraph>, class: &str) -> ExternalPtr<Grap
             let dag = Dag::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
             ExternalPtr::new(GraphView::Dag(Arc::new(dag)))
         }
-        "PDAG" | "CPDAG" => {
+        "PDAG" | "CPDAG" | "MPDAG" => {
             let pdag = Pdag::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
+            if class.trim().eq_ignore_ascii_case("MPDAG") && !pdag.is_meek_closed() {
+                throw_r_error("graph is not MPDAG (not closed under Meek rules)");
+            }
             ExternalPtr::new(GraphView::Pdag(Arc::new(pdag)))
         }
         "UG" => {
@@ -292,8 +599,19 @@ fn graph_builder_resolve_class(mut b: ExternalPtr<GraphBuilder>, class: &str) ->
         .as_mut()
         .finalize_in_place()
         .unwrap_or_else(|e| throw_r_error(e));
-    let view = graphview_new(ExternalPtr::new(core), class);
-    graph_class_label_from_view(view.as_ref()).to_string()
+    let graph_class = GraphClass::from_str(class).unwrap_or_else(|e| throw_r_error(e));
+    let mut session = GraphSession::from_snapshot(
+        Arc::new(core.registry.clone()),
+        core.n(),
+        core.simple,
+        GraphClass::Unknown,
+    );
+    session.set_edges(edge_buffer_from_core(&core));
+    session
+        .resolve_class(graph_class)
+        .unwrap_or_else(|e| throw_r_error(e))
+        .as_str()
+        .to_string()
 }
 
 // ── Metrics ────────────────────────────────────────────────────────────────
@@ -467,7 +785,10 @@ fn rs_write_caugi_file(
     tags: Nullable<Strings>,
 ) {
     let node_names_vec: Vec<String> = session.as_ref().names().to_vec();
-    let comment_opt = comment.into_option().map(|s| s.to_string());
+    let comment_opt = match comment {
+        Nullable::NotNull(s) => Some(s.to_string()),
+        Nullable::Null => None,
+    };
     let tags_opt = tags
         .into_option()
         .map(|strs| strs.iter().map(|s| s.to_string()).collect::<Vec<_>>());
@@ -495,7 +816,10 @@ fn rs_serialize_caugi(
     tags: Nullable<Strings>,
 ) -> String {
     let node_names_vec: Vec<String> = session.as_ref().names().to_vec();
-    let comment_opt = comment.into_option().map(|s| s.to_string());
+    let comment_opt = match comment {
+        Nullable::NotNull(s) => Some(s.to_string()),
+        Nullable::Null => None,
+    };
     let tags_opt = tags
         .into_option()
         .map(|strs| strs.iter().map(|s| s.to_string()).collect::<Vec<_>>());
@@ -794,6 +1118,16 @@ fn rs_names(session: ExternalPtr<GraphSession>) -> Strings {
 }
 
 #[extendr]
+fn rs_names_subset(session: ExternalPtr<GraphSession>, indices: Vec<i32>) -> Strings {
+    let names = session.as_ref().names();
+
+    indices
+        .iter()
+        .map(|&i| names[i as usize].as_str())
+        .collect()
+}
+
+#[extendr]
 fn rs_index_of(session: ExternalPtr<GraphSession>, name: &str) -> Robj {
     match session.as_ref().index_of(name) {
         Some(idx) => (idx as i32).into_robj(),
@@ -865,211 +1199,299 @@ fn rs_build(mut session: ExternalPtr<GraphSession>) {
     session.as_mut().view().unwrap_or_else(|e| throw_r_error(e));
 }
 
-// Query accessors
 #[extendr]
-fn rs_topological_sort(mut session: ExternalPtr<GraphSession>) -> Robj {
+fn parents(cg: Robj, nodes: Robj, index: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    run_relation_query(&mut session, idx0, "idx", "idxs", |s, i| {
+        s.as_mut().parents_of(i).map_err(|e| e)
+    })
+}
+
+#[extendr]
+fn children(cg: Robj, nodes: Robj, index: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    run_relation_query(&mut session, idx0, "idx", "idxs", |s, i| {
+        s.as_mut().children_of(i).map_err(|e| e)
+    })
+}
+
+#[extendr]
+fn neighbors(cg: Robj, nodes: Robj, index: Robj, mode: Robj) -> Robj {
+    use graph::NeighborMode;
+
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    let mode_norm = parse_neighbors_mode(mode);
+    let neighbor_mode =
+        NeighborMode::from_str(mode_norm.as_str()).unwrap_or_else(|e| throw_r_error(e));
+
+    run_relation_query(&mut session, idx0, "idx", "idxs", move |s, i| {
+        s.as_mut().neighbors_of(i, neighbor_mode).map_err(|e| e)
+    })
+}
+
+#[extendr]
+fn ancestors(cg: Robj, nodes: Robj, index: Robj, open: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    let open_flag = parse_open_arg(open);
+
+    run_relation_query(&mut session, idx0, "node", "node", move |s, i| {
+        let mut v = s.as_mut().ancestors_of(i).map_err(|e| e)?;
+        if !open_flag {
+            v.insert(0, i);
+        }
+        Ok(v)
+    })
+}
+
+#[extendr]
+fn descendants(cg: Robj, nodes: Robj, index: Robj, open: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    let open_flag = parse_open_arg(open);
+
+    run_relation_query(&mut session, idx0, "node", "node", move |s, i| {
+        let mut v = s.as_mut().descendants_of(i).map_err(|e| e)?;
+        if !open_flag {
+            v.insert(0, i);
+        }
+        Ok(v)
+    })
+}
+
+#[extendr]
+fn anteriors(cg: Robj, nodes: Robj, index: Robj, open: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    let open_flag = parse_open_arg(open);
+
+    run_relation_query(&mut session, idx0, "node", "node", move |s, i| {
+        let mut v = s.as_mut().anteriors_of(i).map_err(|e| e)?;
+        if !open_flag {
+            v.insert(0, i);
+        }
+        Ok(v)
+    })
+}
+
+#[extendr]
+fn posteriors(cg: Robj, nodes: Robj, index: Robj, open: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(&session, nodes, index, "Supply one of `nodes` or `index`.");
+    let open_flag = parse_open_arg(open);
+
+    run_relation_query(&mut session, idx0, "node", "node", move |s, i| {
+        let mut v = s.as_mut().posteriors_of(i).map_err(|e| e)?;
+        if !open_flag {
+            v.insert(0, i);
+        }
+        Ok(v)
+    })
+}
+
+#[extendr]
+fn markov_blanket(cg: Robj, nodes: Robj, index: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    run_relation_query(&mut session, idx0, "node", "node", |s, i| {
+        s.as_mut().markov_blanket_of(i).map_err(|e| e)
+    })
+}
+
+#[extendr]
+fn spouses(cg: Robj, nodes: Robj, index: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let idx0 = resolve_query_idx0(
+        &session,
+        nodes,
+        index,
+        "Must supply either `nodes` or `index`.",
+    );
+    run_relation_query(&mut session, idx0, "idx", "idxs", |s, i| {
+        s.as_mut().spouses_of(i).map_err(|e| e)
+    })
+}
+
+#[extendr]
+fn districts(cg: Robj, nodes: Robj, index: Robj, all: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+
+    let nodes_supplied = !nodes.is_null();
+    let index_supplied = !index.is_null();
+
+    if nodes_supplied && index_supplied {
+        throw_r_error("Supply either `nodes` or `index`, not both.");
+    }
+
+    let all_opt = parse_optional_single_logical(all, "`all` must be TRUE, FALSE, or NULL.");
+    if all_opt == Some(true) && (nodes_supplied || index_supplied) {
+        throw_r_error("`all = TRUE` cannot be combined with `nodes` or `index`.");
+    }
+
+    if all_opt == Some(false) && !nodes_supplied && !index_supplied {
+        throw_r_error("`all = FALSE` requires `nodes` or `index` to be supplied.");
+    }
+
+    let all_requested = match all_opt {
+        None => !nodes_supplied && !index_supplied,
+        Some(v) => v,
+    };
+
+    if all_requested {
+        let result = session
+            .as_mut()
+            .districts()
+            .unwrap_or_else(|e| throw_r_error(e));
+
+        let out: Vec<Robj> = result
+            .iter()
+            .map(|d| indices_to_names(d, session.as_ref().names()))
+            .collect();
+        return extendr_api::prelude::List::from_values(out).into_robj();
+    }
+
+    if index_supplied {
+        let idx1 = parse_district_index1(index);
+        let n = session.as_ref().n() as i32;
+        if idx1.iter().any(|&i| i < 1 || i > n) {
+            throw_r_error("`index` out of range (1..n).");
+        }
+
+        if idx1.len() <= 1 {
+            if idx1.is_empty() {
+                throw_r_error("Expected non zero length");
+            }
+            let i0 = idx1[0] - 1;
+            let i = rint_to_u32(Rint::from(i0), "idx");
+            let v = session
+                .as_mut()
+                .district_of(i)
+                .unwrap_or_else(|e| throw_r_error(e));
+            return indices_to_names(&v, session.as_ref().names());
+        }
+
+        let mut out: Vec<Robj> = Vec::with_capacity(idx1.len());
+        let mut out_names: Vec<String> = Vec::with_capacity(idx1.len());
+        for i1 in idx1 {
+            let i0 = i1 - 1;
+            let i = rint_to_u32(Rint::from(i0), "idxs");
+            out_names.push(session.as_ref().names()[i as usize].clone());
+            let v = session
+                .as_mut()
+                .district_of(i)
+                .unwrap_or_else(|e| throw_r_error(e));
+            out.push(indices_to_names(&v, session.as_ref().names()));
+        }
+        return named_list(out, out_names);
+    }
+
+    if !nodes_supplied {
+        throw_r_error("Supply one of `nodes` or `index`, or set `all = TRUE`.");
+    }
+
+    let node_vals: Strings = nodes
+        .try_into()
+        .unwrap_or_else(|_| throw_r_error("`nodes` must be a character vector without NA."));
+    let mut node_names = Vec::with_capacity(node_vals.len());
+    for i in 0..node_vals.len() {
+        let s = node_vals.elt(i);
+        if s.is_na() {
+            throw_r_error("`nodes` must be a character vector without NA.");
+        }
+        node_names.push(s.to_string());
+    }
+    let idx0: Vec<i32> = session
+        .as_ref()
+        .indices_of(&node_names)
+        .unwrap_or_else(|e| throw_r_error(e))
+        .into_iter()
+        .map(|x| x as i32)
+        .collect();
+
+    if idx0.len() <= 1 {
+        if idx0.is_empty() {
+            throw_r_error("Expected non zero length");
+        }
+        let i = rint_to_u32(Rint::from(idx0[0]), "idx");
+        let v = session
+            .as_mut()
+            .district_of(i)
+            .unwrap_or_else(|e| throw_r_error(e));
+        return indices_to_names(&v, session.as_ref().names());
+    }
+
+    let mut out: Vec<Robj> = Vec::with_capacity(idx0.len());
+    for &ii in idx0.iter() {
+        let i = rint_to_u32(Rint::from(ii), "idxs");
+        let v = session
+            .as_mut()
+            .district_of(i)
+            .unwrap_or_else(|e| throw_r_error(e));
+        out.push(indices_to_names(&v, session.as_ref().names()));
+    }
+    named_list(out, node_names)
+}
+
+#[extendr]
+fn topological_sort(cg: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
     let result = session
         .as_mut()
         .topological_sort()
         .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
+    indices_to_names(&result, session.as_ref().names())
 }
 
 #[extendr]
-fn rs_parents_of(mut session: ExternalPtr<GraphSession>, idxs: Integers) -> Robj {
-    let mut out: Vec<Robj> = Vec::with_capacity(idxs.len());
-    for ri in idxs.iter() {
-        let i = rint_to_u32(ri, "idxs");
-        if i >= session.as_ref().n() {
-            throw_r_error(format!("Index {} is out of bounds", i));
-        }
-        let v = session
-            .as_mut()
-            .parents_of(i)
-            .unwrap_or_else(|e| throw_r_error(e));
-        out.push(v.iter().map(|&x| x as i32).collect_robj());
-    }
-    extendr_api::prelude::List::from_values(out).into_robj()
-}
-
-#[extendr]
-fn rs_children_of(mut session: ExternalPtr<GraphSession>, idxs: Integers) -> Robj {
-    let mut out: Vec<Robj> = Vec::with_capacity(idxs.len());
-    for ri in idxs.iter() {
-        let i = rint_to_u32(ri, "idxs");
-        if i >= session.as_ref().n() {
-            throw_r_error(format!("Index {} is out of bounds", i));
-        }
-        let v = session
-            .as_mut()
-            .children_of(i)
-            .unwrap_or_else(|e| throw_r_error(e));
-        out.push(v.iter().map(|&x| x as i32).collect_robj());
-    }
-    extendr_api::prelude::List::from_values(out).into_robj()
-}
-
-#[extendr]
-fn rs_undirected_of(mut session: ExternalPtr<GraphSession>, idxs: Integers) -> Robj {
-    let mut out: Vec<Robj> = Vec::with_capacity(idxs.len());
-    for ri in idxs.iter() {
-        let i = rint_to_u32(ri, "idxs");
-        if i >= session.as_ref().n() {
-            throw_r_error(format!("Index {} is out of bounds", i));
-        }
-        let v = session
-            .as_mut()
-            .undirected_of(i)
-            .unwrap_or_else(|e| throw_r_error(e));
-        out.push(v.iter().map(|&x| x as i32).collect_robj());
-    }
-    extendr_api::prelude::List::from_values(out).into_robj()
-}
-
-#[extendr]
-fn rs_neighbors_of(mut session: ExternalPtr<GraphSession>, idxs: Integers, mode: Strings) -> Robj {
-    use graph::NeighborMode;
-    // Allow single mode to apply to all indices, or one mode per index
-    if mode.len() != 1 && mode.len() != idxs.len() {
-        throw_r_error("mode must be length 1 or match index length");
-    }
-    let single_mode = mode.len() == 1;
-    let first_mode = if single_mode {
-        Some(
-            NeighborMode::from_str(mode.iter().next().unwrap().as_str())
-                .unwrap_or_else(|e| throw_r_error(e)),
-        )
-    } else {
-        None
-    };
-
-    let mut out: Vec<Robj> = Vec::with_capacity(idxs.len());
-    for (idx, ri) in idxs.iter().enumerate() {
-        let i = rint_to_u32(ri, "idxs");
-        if i >= session.as_ref().n() {
-            throw_r_error(format!("Index {} is out of bounds", i));
-        }
-        let neighbor_mode = if single_mode {
-            first_mode.unwrap()
-        } else {
-            NeighborMode::from_str(mode.elt(idx).as_str()).unwrap_or_else(|e| throw_r_error(e))
-        };
-        let v = session
-            .as_mut()
-            .neighbors_of(i, neighbor_mode)
-            .unwrap_or_else(|e| throw_r_error(e));
-        out.push(v.iter().map(|&x| x as i32).collect_robj());
-    }
-    extendr_api::prelude::List::from_values(out).into_robj()
-}
-
-#[extendr]
-fn rs_ancestors_of(mut session: ExternalPtr<GraphSession>, node: i32) -> Robj {
-    let idx = rint_to_u32(Rint::from(node), "node");
+fn exogenous(cg: Robj, undirected_as_parents: Robj) -> Robj {
+    let mut session = session_ptr_from_cg(&cg);
+    let undirected = parse_single_logical(
+        undirected_as_parents,
+        "`undirected_as_parents` must be a single TRUE or FALSE.",
+    );
     let result = session
         .as_mut()
-        .ancestors_of(idx)
+        .exogenous_nodes(undirected)
         .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
-}
-
-#[extendr]
-fn rs_descendants_of(mut session: ExternalPtr<GraphSession>, node: i32) -> Robj {
-    let idx = rint_to_u32(Rint::from(node), "node");
-    let result = session
-        .as_mut()
-        .descendants_of(idx)
-        .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
-}
-
-#[extendr]
-fn rs_anteriors_of(mut session: ExternalPtr<GraphSession>, node: i32) -> Robj {
-    let idx = rint_to_u32(Rint::from(node), "node");
-    let result = session
-        .as_mut()
-        .anteriors_of(idx)
-        .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
-}
-
-#[extendr]
-fn rs_posteriors_of(mut session: ExternalPtr<GraphSession>, node: i32) -> Robj {
-    let idx = rint_to_u32(Rint::from(node), "node");
-    let result = session
-        .as_mut()
-        .posteriors_of(idx)
-        .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
-}
-
-#[extendr]
-fn rs_markov_blanket_of(mut session: ExternalPtr<GraphSession>, node: i32) -> Robj {
-    let idx = rint_to_u32(Rint::from(node), "node");
-    let result = session
-        .as_mut()
-        .markov_blanket_of(idx)
-        .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
-}
-
-#[extendr]
-fn rs_spouses_of(mut session: ExternalPtr<GraphSession>, idxs: Integers) -> Robj {
-    let mut out: Vec<Robj> = Vec::with_capacity(idxs.len());
-    for ri in idxs.iter() {
-        let i = rint_to_u32(ri, "idxs");
-        if i >= session.as_ref().n() {
-            throw_r_error(format!("Index {} is out of bounds", i));
-        }
-        let v = session
-            .as_mut()
-            .spouses_of(i)
-            .unwrap_or_else(|e| throw_r_error(e));
-        out.push(v.iter().map(|&x| x as i32).collect_robj());
-    }
-    extendr_api::prelude::List::from_values(out).into_robj()
-}
-
-#[extendr]
-fn rs_exogenous_nodes(
-    mut session: ExternalPtr<GraphSession>,
-    undirected_as_parents: Rbool,
-) -> Robj {
-    let result = session
-        .as_mut()
-        .exogenous_nodes(undirected_as_parents.is_true())
-        .unwrap_or_else(|e| throw_r_error(e));
-    result.iter().map(|&x| x as i32).collect_robj()
-}
-
-#[extendr]
-fn rs_districts(mut session: ExternalPtr<GraphSession>) -> Robj {
-    let result = session
-        .as_mut()
-        .districts()
-        .unwrap_or_else(|e| throw_r_error(e));
-
-    let out: Vec<Robj> = result
-        .iter()
-        .map(|d| d.iter().map(|&x| x as i32).collect_robj())
-        .collect();
-    extendr_api::prelude::List::from_values(out).into_robj()
-}
-
-#[extendr]
-fn rs_district_of(mut session: ExternalPtr<GraphSession>, idx: i32) -> Robj {
-    if idx < 0 {
-        throw_r_error("idx must be >= 0");
-    }
-    let i = idx as u32;
-    if i >= session.as_ref().n() {
-        throw_r_error(format!("Index {} is out of bounds", i));
-    }
-    let v = session
-        .as_mut()
-        .district_of(i)
-        .unwrap_or_else(|e| throw_r_error(e));
-    v.into_iter().map(|x| x as i32).collect_robj()
+    indices_to_names(&result, session.as_ref().names())
 }
 
 // ── Session validation / class checks ────────────────────────────────────────
@@ -1223,56 +1645,210 @@ fn rs_latent_project(
 }
 
 #[extendr]
+fn rs_exogenize(
+    mut session: ExternalPtr<GraphSession>,
+    nodes: Integers,
+) -> ExternalPtr<GraphSession> {
+    let nodes_u: Vec<u32> = nodes.iter().map(|ri| rint_to_u32(ri, "nodes")).collect();
+    for &i in &nodes_u {
+        if i >= session.as_ref().n() {
+            throw_r_error(format!("Index {} is out of bounds", i));
+        }
+    }
+    let view = session
+        .as_mut()
+        .exogenize(&nodes_u)
+        .unwrap_or_else(|e| throw_r_error(e));
+    let names: Vec<String> = session.as_ref().names().to_vec();
+    ExternalPtr::new(session_from_view(view, names))
+}
+
+#[extendr]
+fn rs_normalize_latent_structure(
+    mut session: ExternalPtr<GraphSession>,
+    latents: Integers,
+) -> ExternalPtr<GraphSession> {
+    let latents_u: Vec<u32> = latents
+        .iter()
+        .map(|ri| rint_to_u32(ri, "latents"))
+        .collect();
+    for &i in &latents_u {
+        if i >= session.as_ref().n() {
+            throw_r_error(format!("Index {} is out of bounds", i));
+        }
+    }
+    let (view, keep_old) = session
+        .as_mut()
+        .normalize_latent_structure(&latents_u)
+        .unwrap_or_else(|e| throw_r_error(e));
+    let names: Vec<String> = keep_old
+        .iter()
+        .map(|&old_i| session.as_ref().names()[old_i as usize].clone())
+        .collect();
+    ExternalPtr::new(session_from_view(view, names))
+}
+
+fn induced_subgraph_session_from_keep(
+    session: &mut ExternalPtr<GraphSession>,
+    keep_u: &[u32],
+) -> ExternalPtr<GraphSession> {
+    let s = session.as_mut();
+    let n_old = s.n() as usize;
+
+    // Collect names for kept nodes.
+    let mut names: Vec<String> = Vec::with_capacity(keep_u.len());
+    for &old_i in keep_u {
+        if (old_i as usize) >= n_old {
+            throw_r_error(format!("Index {} is out of bounds", old_i));
+        }
+        names.push(s.names()[old_i as usize].clone());
+    }
+
+    // Fast path: if CSR core is already built, use CSR-induced subgraph.
+    // This only touches the adjacency of kept nodes instead of scanning all edges.
+    if s.is_core_valid() {
+        let core = s.core().unwrap_or_else(|e| throw_r_error(e));
+        let (sub_core, _new_to_old, _old_to_new) = core
+            .induced_subgraph(keep_u)
+            .unwrap_or_else(|e| throw_r_error(e));
+
+        let out = GraphSession::from_prebuilt_core(
+            Arc::clone(s.registry()),
+            s.simple(),
+            s.class(),
+            sub_core,
+            names,
+        );
+        return ExternalPtr::new(out);
+    }
+
+    // Slow path: scan edge buffer when CSR is not yet built.
+    let mut old_to_new = vec![u32::MAX; n_old];
+    for (new_i, &old_i) in keep_u.iter().enumerate() {
+        if old_to_new[old_i as usize] != u32::MAX {
+            throw_r_error("duplicate node id in `keep`");
+        }
+        old_to_new[old_i as usize] = new_i as u32;
+    }
+
+    // Single pass with heuristic capacity estimate.
+    let eb = s.edge_buffer();
+    let edge_len = eb.len();
+    let keep_frac = keep_u.len() as f64 / n_old.max(1) as f64;
+    let est = (keep_frac * keep_frac * edge_len as f64) as usize;
+    let mut kept_edges = EdgeBuffer::with_capacity(est);
+    for i in 0..edge_len {
+        let old_from = eb.from[i] as usize;
+        let old_to = eb.to[i] as usize;
+        if old_from >= n_old || old_to >= n_old {
+            continue;
+        }
+        let new_from = old_to_new[old_from];
+        let new_to = old_to_new[old_to];
+        if new_from != u32::MAX && new_to != u32::MAX {
+            kept_edges.push(new_from, new_to, eb.etype[i]);
+        }
+    }
+
+    // Edges are trusted (subset of a valid graph) so build_core will use
+    // the fast bulk path when the CSR is eventually needed.
+    let out = GraphSession::from_snapshot_with_data(
+        Arc::clone(s.registry()),
+        s.simple(),
+        s.class(),
+        kept_edges,
+        names,
+    );
+    ExternalPtr::new(out)
+}
+
+#[extendr]
 fn rs_induced_subgraph(
     mut session: ExternalPtr<GraphSession>,
     keep: Integers,
 ) -> ExternalPtr<GraphSession> {
     let keep_u: Vec<u32> = keep.iter().map(|ri| rint_to_u32(ri, "keep")).collect();
-    for &i in &keep_u {
-        if i >= session.as_ref().n() {
-            throw_r_error(format!("Index {} is out of bounds", i));
-        }
+    induced_subgraph_session_from_keep(&mut session, &keep_u)
+}
+
+#[extendr]
+fn subgraph(cg: Robj, nodes: Robj, index: Robj) -> Robj {
+    use std::collections::HashSet;
+
+    let mut session = session_ptr_from_cg(&cg);
+
+    let nodes_supplied = !nodes.is_null();
+    let index_supplied = !index.is_null();
+
+    if nodes_supplied && index_supplied {
+        throw_r_error("Supply either `nodes` or `index`, not both.");
+    }
+    if !nodes_supplied && !index_supplied {
+        throw_r_error("Must supply either `nodes` or `index`.");
     }
 
-    let view = session.as_mut().view().unwrap_or_else(|e| throw_r_error(e));
-    let sub_view = view
-        .as_ref()
-        .induced_subgraph(&keep_u)
-        .unwrap_or_else(|e| throw_r_error(e));
+    let keep_u: Vec<u32> = if index_supplied {
+        parse_subgraph_keep_index(index, session.as_ref().n())
+    } else {
+        let node_strings: Strings = nodes
+            .try_into()
+            .unwrap_or_else(|_| throw_r_error("`nodes` must be a character vector of node names."));
+        let sref = session.as_ref();
+        let n = sref.n();
 
-    let all_names: Vec<String> = session.as_ref().names().to_vec();
-    let names: Vec<String> = keep_u
-        .iter()
-        .map(|&i| all_names[i as usize].clone())
-        .collect();
+        let mut keep = Vec::with_capacity(node_strings.len());
+        let mut seen = vec![false; n as usize];
+        let mut has_duplicate = false;
+        let mut first_missing: Option<String> = None;
 
-    // Preserve original input edge orientation/order by filtering the source
-    // session EdgeBuffer, then remap old node ids to induced-subgraph ids.
-    let n_old = session.as_ref().n() as usize;
-    let mut old_to_new = vec![u32::MAX; n_old];
-    for (new_i, &old_i) in keep_u.iter().enumerate() {
-        old_to_new[old_i as usize] = new_i as u32;
-    }
-
-    let src_edges = session.as_ref().edge_buffer();
-    let mut kept_edges = EdgeBuffer::with_capacity(src_edges.len());
-    for i in 0..src_edges.len() {
-        let old_from = src_edges.from[i] as usize;
-        let old_to = src_edges.to[i] as usize;
-        if old_from >= n_old || old_to >= n_old {
-            continue;
+        for s in node_strings.iter() {
+            if s.is_na() {
+                throw_r_error("`nodes` cannot contain NA values.");
+            }
+            let name = s.as_ref();
+            let idx = sref.index_of(name);
+            match idx {
+                Some(idx) => {
+                    let ui = idx as usize;
+                    if seen[ui] {
+                        has_duplicate = true;
+                    } else {
+                        seen[ui] = true;
+                    }
+                    keep.push(idx);
+                }
+                None => {
+                    first_missing = Some(name.to_string());
+                    break;
+                }
+            }
         }
 
-        let new_from = old_to_new[old_from];
-        let new_to = old_to_new[old_to];
-        if new_from != u32::MAX && new_to != u32::MAX {
-            kept_edges.push(new_from, new_to, src_edges.etype[i]);
+        if let Some(first) = first_missing {
+            let mut miss_seen: HashSet<String> = HashSet::new();
+            let mut miss: Vec<String> = Vec::new();
+            miss_seen.insert(first.clone());
+            miss.push(first);
+            for s in node_strings.iter() {
+                if s.is_na() {
+                    continue;
+                }
+                let name = s.as_ref();
+                let missing = sref.index_of(name).is_none();
+                if missing && miss_seen.insert(name.to_string()) {
+                    miss.push(name.to_string());
+                }
+            }
+            throw_r_error(format!("Unknown node(s): {}", miss.join(", ")));
         }
-    }
+        if has_duplicate {
+            throw_r_error("`nodes`/`index` contains duplicates.");
+        }
+        keep
+    };
 
-    let mut out = session_from_view(sub_view, names);
-    out.set_edges(kept_edges);
-    ExternalPtr::new(out)
+    let sub_session = induced_subgraph_session_from_keep(&mut session, &keep_u);
+    caugi_from_session_ptr(&cg, sub_session)
 }
 
 // ── Session causal queries ───────────────────────────────────────────────────
@@ -1293,7 +1869,7 @@ fn rs_d_separated(
 }
 
 #[extendr]
-fn rs_minimal_d_separator(
+fn rs_minimal_separator(
     mut session: ExternalPtr<GraphSession>,
     xs: Integers,
     ys: Integers,
@@ -1313,7 +1889,7 @@ fn rs_minimal_d_separator(
 
     let result = session
         .as_mut()
-        .minimal_d_separator(&xs_u, &ys_u, &inc_u, &res_u)
+        .minimal_separator(&xs_u, &ys_u, &inc_u, &res_u)
         .unwrap_or_else(|e| throw_r_error(e));
 
     match result {
@@ -1351,6 +1927,79 @@ fn rs_m_separated(
         .as_mut()
         .m_separated(&xs_u, &ys_u, &z_u)
         .unwrap_or_else(|e| throw_r_error(e))
+}
+
+#[extendr]
+fn rs_not_m_separated_for_all_subsets(
+    mut session: ExternalPtr<GraphSession>,
+    node_a: i32,
+    node_b: i32,
+    other_nodes: Integers,
+    cond_vars: Integers,
+) -> bool {
+    let a = rint_to_u32(Rint::from(node_a), "node_a");
+    let b = rint_to_u32(Rint::from(node_b), "node_b");
+
+    if a >= session.as_ref().n() {
+        throw_r_error(format!("Index {} is out of bounds", a));
+    }
+    if b >= session.as_ref().n() {
+        throw_r_error(format!("Index {} is out of bounds", b));
+    }
+
+    let mut z_base: Vec<u32> = cond_vars
+        .iter()
+        .map(|ri| rint_to_u32(ri, "cond_vars"))
+        .collect();
+    let other_u: Vec<u32> = other_nodes
+        .iter()
+        .map(|ri| rint_to_u32(ri, "other_nodes"))
+        .collect();
+
+    for &i in &z_base {
+        if i >= session.as_ref().n() {
+            throw_r_error(format!("Index {} is out of bounds", i));
+        }
+    }
+    for &i in &other_u {
+        if i >= session.as_ref().n() {
+            throw_r_error(format!("Index {} is out of bounds", i));
+        }
+    }
+
+    let m = other_u.len();
+
+    for k in (0..=m).rev() {
+        let mut idx: Vec<usize> = (0..k).collect();
+        loop {
+            z_base.truncate(cond_vars.len());
+            for &ii in &idx {
+                z_base.push(other_u[ii]);
+            }
+
+            if session
+                .as_mut()
+                .m_separated(&[a], &[b], &z_base)
+                .unwrap_or_else(|e| throw_r_error(e))
+            {
+                return false;
+            }
+
+            let mut i = k;
+            while i > 0 && idx[i - 1] == i - 1 + (m - k) {
+                i -= 1;
+            }
+            if i == 0 {
+                break;
+            }
+            idx[i - 1] += 1;
+            for j in i..k {
+                idx[j] = idx[j - 1] + 1;
+            }
+        }
+    }
+
+    true
 }
 
 #[extendr]
@@ -1503,25 +2152,24 @@ extendr_module! {
     fn rs_class;
     fn rs_graph_class;
     fn rs_names;
+    fn rs_names_subset;
     fn rs_index_of;
     fn rs_indices_of;
     fn rs_edges_df;
     fn rs_is_valid;
     fn rs_build;
-    fn rs_topological_sort;
-    fn rs_parents_of;
-    fn rs_children_of;
-    fn rs_undirected_of;
-    fn rs_neighbors_of;
-    fn rs_ancestors_of;
-    fn rs_descendants_of;
-    fn rs_anteriors_of;
-    fn rs_posteriors_of;
-    fn rs_markov_blanket_of;
-    fn rs_spouses_of;
-    fn rs_exogenous_nodes;
-    fn rs_districts;
-    fn rs_district_of;
+    fn children;
+    fn neighbors;
+    fn ancestors;
+    fn descendants;
+    fn anteriors;
+    fn posteriors;
+    fn markov_blanket;
+    fn exogenous;
+    fn topological_sort;
+    fn spouses;
+    fn districts;
+    fn parents;
     fn rs_is_acyclic;
     fn rs_is_dag_type;
     fn rs_is_pdag_type;
@@ -1536,10 +2184,14 @@ extendr_module! {
     fn rs_skeleton;
     fn rs_moralize;
     fn rs_latent_project;
+    fn rs_exogenize;
+    fn rs_normalize_latent_structure;
     fn rs_induced_subgraph;
+    fn subgraph;
     fn rs_d_separated;
-    fn rs_minimal_d_separator;
+    fn rs_minimal_separator;
     fn rs_m_separated;
+    fn rs_not_m_separated_for_all_subsets;
     fn rs_adjustment_set_parents;
     fn rs_adjustment_set_backdoor;
     fn rs_adjustment_set_optimal;

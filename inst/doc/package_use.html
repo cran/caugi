@@ -431,7 +431,7 @@ correlation threshold.</p>
 <p>Let’s try it out!</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>cg <span class="ot">&lt;-</span> <span class="fu">correlation_implies_causation</span>(df)</span>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>cg</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; session=0x5565430772f0&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; session=0x623342c732d0&gt;</span></span>
 <span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   graph_class: UNKNOWN</span></span>
 <span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;   nodes: V1, V2, V3</span></span>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;   edges: V1--&gt;V2</span></span></code></pre></div>
@@ -474,7 +474,7 @@ will return a <code>caugi</code> graph that is a DAG if possible,
 otherwise an <code>&quot;UNKNOWN&quot;</code> graph.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>cg <span class="ot">&lt;-</span> <span class="fu">correlation_implies_causation</span>(df)</span>
 <span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>cg</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; session=0x556542d033d0&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt; &lt;caugi object; 3 nodes, 1 edges; simple: TRUE; session=0x6233462785a0&gt;</span></span>
 <span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;   graph_class: DAG</span></span>
 <span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt;   nodes: V1, V2, V3</span></span>
 <span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt;   edges: V1--&gt;V2</span></span>

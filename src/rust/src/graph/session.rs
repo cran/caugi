@@ -17,7 +17,8 @@ use super::CaugiGraph;
 use super::RegistrySnapshot;
 use crate::edges::{EdgeRegistry, EdgeSpec};
 use crate::graph::NeighborMode;
-use std::collections::{HashMap, HashSet};
+use rustc_hash::FxHashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// The target graph class for typed view construction.
@@ -27,6 +28,8 @@ pub enum GraphClass {
     Dag,
     /// Partially Directed Acyclic Graph (`-->`, `---`)
     Pdag,
+    /// Maximally Oriented Partially Directed Acyclic Graph (Meek-closed PDAG)
+    Mpdag,
     /// Undirected Graph (only `---`)
     Ug,
     /// Acyclic Directed Mixed Graph (`-->`, `<->`)
@@ -46,6 +49,7 @@ impl std::str::FromStr for GraphClass {
         match s.to_lowercase().as_str() {
             "dag" => Ok(GraphClass::Dag),
             "pdag" | "cpdag" => Ok(GraphClass::Pdag),
+            "mpdag" => Ok(GraphClass::Mpdag),
             "ug" => Ok(GraphClass::Ug),
             "admg" => Ok(GraphClass::Admg),
             "ag" | "mag" | "pag" => Ok(GraphClass::Ag),
@@ -61,6 +65,7 @@ impl GraphClass {
         match self {
             GraphClass::Dag => "DAG",
             GraphClass::Pdag => "PDAG",
+            GraphClass::Mpdag => "MPDAG",
             GraphClass::Ug => "UG",
             GraphClass::Admg => "ADMG",
             GraphClass::Ag => "AG",
@@ -122,7 +127,7 @@ impl EdgeBuffer {
 /// The session holds:
 /// - **Variables**: Mutable inputs (n, simple, class, registry, edges, names)
 /// - **Declarations**: Lazily computed outputs (core, view)
-/// - **Queries**: Computed on demand without caching
+/// - **Queries**: Computed on demand (no query-level caching)
 ///
 /// # Invalidation Rules
 ///
@@ -147,6 +152,9 @@ pub struct GraphSession {
     // ═══════════════════════════════════════════════════════════════════════════
     core_valid: bool,
     view_valid: bool,
+    /// When true, edges are known to be valid (e.g., subset of an already-valid
+    /// graph) and `build_core` can skip per-edge validation.
+    edges_trusted: bool,
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DECLARATIONS (computed values)
@@ -183,6 +191,7 @@ impl GraphSession {
 
             core_valid: false,
             view_valid: false,
+            edges_trusted: false,
 
             core: None,
             view: None,
@@ -210,8 +219,75 @@ impl GraphSession {
 
             core_valid: false,
             view_valid: false,
+            edges_trusted: false,
 
             core: None,
+            view: None,
+        }
+    }
+
+    /// Create a new session from an existing registry snapshot plus full data.
+    /// Edges are marked as trusted (skipping validation on build).
+    pub fn from_snapshot_with_data(
+        registry: Arc<RegistrySnapshot>,
+        simple: bool,
+        class: GraphClass,
+        edges: EdgeBuffer,
+        names: Vec<String>,
+    ) -> Self {
+        let n = names.len() as u32;
+        let name_to_index = Self::build_name_to_index(&names);
+        Self {
+            n,
+            simple,
+            graph_class: class,
+            registry,
+            edges,
+            names,
+            name_to_index,
+            core_valid: false,
+            view_valid: false,
+            edges_trusted: true,
+            core: None,
+            view: None,
+        }
+    }
+
+    /// Create a session with a pre-built CSR core (e.g., from CSR-based subgraph extraction).
+    /// The edge buffer is reconstructed from the CSR so future mutations are possible.
+    pub fn from_prebuilt_core(
+        registry: Arc<RegistrySnapshot>,
+        simple: bool,
+        class: GraphClass,
+        core: CaugiGraph,
+        names: Vec<String>,
+    ) -> Self {
+        // Reconstruct edge buffer from CSR: collect tail-side half-edges only
+        // (each undirected edge has both a tail and head half; we only want one copy).
+        let n = core.n();
+        let mut edges = EdgeBuffer::new();
+        for u in 0..n {
+            for k in core.row_range(u) {
+                if core.side[k] == 0 {
+                    // side 0 = Tail position → this node is the source
+                    edges.push(u, core.col_index[k], core.etype[k]);
+                }
+            }
+        }
+
+        let name_to_index = Self::build_name_to_index(&names);
+        Self {
+            n,
+            simple,
+            graph_class: class,
+            registry,
+            edges,
+            names,
+            name_to_index,
+            core_valid: true,
+            view_valid: false,
+            edges_trusted: true,
+            core: Some(Arc::new(core)),
             view: None,
         }
     }
@@ -233,6 +309,7 @@ impl GraphSession {
             // Invalidate all declarations in the clone
             core_valid: false,
             view_valid: false,
+            edges_trusted: self.edges_trusted,
             core: None,
             view: None,
         }
@@ -244,6 +321,7 @@ impl GraphSession {
 
     fn invalidate_core(&mut self) {
         self.core_valid = false;
+        self.edges_trusted = false;
         self.core = None;
         self.invalidate_view();
     }
@@ -277,7 +355,8 @@ impl GraphSession {
     }
 
     pub fn replace_edges_for_pairs(&mut self, new_edges: EdgeBuffer) {
-        let mut remove_pairs: HashSet<(u32, u32)> = HashSet::with_capacity(new_edges.len());
+        let mut remove_pairs: FxHashSet<(u32, u32)> =
+            FxHashSet::with_capacity_and_hasher(new_edges.len(), Default::default());
         if self.simple {
             for i in 0..new_edges.len() {
                 let u = new_edges.from[i];
@@ -292,8 +371,10 @@ impl GraphSession {
         }
 
         let mut kept = EdgeBuffer::with_capacity(self.edges.len() + new_edges.len());
-        let mut seen: HashSet<(u32, u32, u8)> =
-            HashSet::with_capacity(self.edges.len() + new_edges.len());
+        let mut seen: FxHashSet<(u32, u32, u8)> = FxHashSet::with_capacity_and_hasher(
+            self.edges.len() + new_edges.len(),
+            Default::default(),
+        );
 
         for i in 0..self.edges.len() {
             let u = self.edges.from[i];
@@ -371,8 +452,21 @@ impl GraphSession {
     // ═══════════════════════════════════════════════════════════════════════════
 
     fn build_core(&self) -> Result<CaugiGraph, String> {
-        let mut builder =
-            GraphBuilder::new_from_snapshot(self.n, self.simple, Arc::clone(&self.registry));
+        if self.edges_trusted {
+            return GraphBuilder::build_from_edge_buffer(
+                self.n,
+                self.simple,
+                &self.edges,
+                Arc::clone(&self.registry),
+            );
+        }
+
+        let mut builder = GraphBuilder::new_from_snapshot_with_capacity(
+            self.n,
+            self.simple,
+            Arc::clone(&self.registry),
+            self.edges.len(),
+        );
 
         for i in 0..self.edges.len() {
             builder
@@ -392,6 +486,14 @@ impl GraphSession {
             GraphClass::Pdag => {
                 let pdag = Pdag::new(core).map_err(|e| self.map_error(e))?;
                 Ok(GraphView::Pdag(Arc::new(pdag)))
+            }
+            GraphClass::Mpdag => {
+                let pdag = Pdag::new(core).map_err(|e| self.map_error(e))?;
+                if pdag.is_meek_closed() {
+                    Ok(GraphView::Pdag(Arc::new(pdag)))
+                } else {
+                    Err("graph is not MPDAG (not closed under Meek rules)".to_string())
+                }
             }
             GraphClass::Ug => {
                 let ug = Ug::new(core).map_err(|e| self.map_error(e))?;
@@ -607,6 +709,15 @@ impl GraphSession {
                 Pdag::new(Arc::new(core.as_ref().clone())).map_err(|e| self.map_error(e))?;
                 Ok(GraphClass::Pdag)
             }
+            GraphClass::Mpdag => {
+                let pdag =
+                    Pdag::new(Arc::new(core.as_ref().clone())).map_err(|e| self.map_error(e))?;
+                if pdag.is_meek_closed() {
+                    Ok(GraphClass::Mpdag)
+                } else {
+                    Err("graph is not MPDAG (not closed under Meek rules)".to_string())
+                }
+            }
             GraphClass::Ug => {
                 Ug::new(Arc::new(core.as_ref().clone())).map_err(|e| self.map_error(e))?;
                 Ok(GraphClass::Ug)
@@ -625,8 +736,12 @@ impl GraphSession {
                     Ok(GraphClass::Dag)
                 } else if Ug::new(Arc::new(core.as_ref().clone())).is_ok() {
                     Ok(GraphClass::Ug)
-                } else if Pdag::new(Arc::new(core.as_ref().clone())).is_ok() {
-                    Ok(GraphClass::Pdag)
+                } else if let Ok(pdag) = Pdag::new(Arc::new(core.as_ref().clone())) {
+                    if pdag.is_meek_closed() {
+                        Ok(GraphClass::Mpdag)
+                    } else {
+                        Ok(GraphClass::Pdag)
+                    }
                 } else if Admg::new(Arc::new(core.as_ref().clone())).is_ok() {
                     Ok(GraphClass::Admg)
                 } else if Ag::new(Arc::new(core.as_ref().clone())).is_ok() {
@@ -670,14 +785,30 @@ impl GraphSession {
         view.latent_project(latents).map_err(|e| self.map_error(e))
     }
 
+    /// Exogenize a set of nodes (DAG only).
+    pub fn exogenize(&mut self, nodes: &[u32]) -> Result<GraphView, String> {
+        let view = self.view()?;
+        view.exogenize(nodes).map_err(|e| self.map_error(e))
+    }
+
+    /// Normalize latent structure (DAG only).
+    pub fn normalize_latent_structure(
+        &mut self,
+        latents: &[u32],
+    ) -> Result<(GraphView, Vec<u32>), String> {
+        let view = self.view()?;
+        view.normalize_latent_structure(latents)
+            .map_err(|e| self.map_error(e))
+    }
+
     /// D-separation query (DAG only).
     pub fn d_separated(&mut self, xs: &[u32], ys: &[u32], z: &[u32]) -> Result<bool, String> {
         let view = self.view()?;
         view.d_separated(xs, ys, z).map_err(|e| self.map_error(e))
     }
 
-    /// Minimal d-separator computation (DAG only).
-    pub fn minimal_d_separator(
+    /// Minimal separator computation (DAG / ADMG / AG).
+    pub fn minimal_separator(
         &mut self,
         xs: &[u32],
         ys: &[u32],
@@ -685,7 +816,7 @@ impl GraphSession {
         restrict: &[u32],
     ) -> Result<Option<Vec<u32>>, String> {
         let view = self.view()?;
-        view.minimal_d_separator(xs, ys, include, restrict)
+        view.minimal_separator(xs, ys, include, restrict)
             .map_err(|e| self.map_error(e))
     }
 
@@ -1125,6 +1256,7 @@ mod tests {
     fn graph_class_from_str_and_as_str() {
         assert_eq!("dag".parse::<GraphClass>().unwrap(), GraphClass::Dag);
         assert_eq!("CPDAG".parse::<GraphClass>().unwrap(), GraphClass::Pdag);
+        assert_eq!("mpdag".parse::<GraphClass>().unwrap(), GraphClass::Mpdag);
         assert_eq!("ug".parse::<GraphClass>().unwrap(), GraphClass::Ug);
         assert_eq!("admg".parse::<GraphClass>().unwrap(), GraphClass::Admg);
         assert_eq!("mag".parse::<GraphClass>().unwrap(), GraphClass::Ag);
@@ -1134,6 +1266,7 @@ mod tests {
 
         assert_eq!(GraphClass::Dag.as_str(), "DAG");
         assert_eq!(GraphClass::Pdag.as_str(), "PDAG");
+        assert_eq!(GraphClass::Mpdag.as_str(), "MPDAG");
         assert_eq!(GraphClass::Ug.as_str(), "UG");
         assert_eq!(GraphClass::Admg.as_str(), "ADMG");
         assert_eq!(GraphClass::Ag.as_str(), "AG");
@@ -1315,7 +1448,7 @@ mod tests {
         assert!(session.d_separated(&[0], &[3], &[2]).unwrap());
         assert_eq!(
             session
-                .minimal_d_separator(&[0], &[3], &[], &[0, 1, 2, 3])
+                .minimal_separator(&[0], &[3], &[], &[0, 1, 2, 3])
                 .unwrap(),
             Some(vec![2])
         );
@@ -1387,7 +1520,7 @@ mod tests {
         assert!(ug.moralize().is_err());
         assert!(ug.latent_project(&[0]).is_err());
         assert!(ug.d_separated(&[0], &[1], &[]).is_err());
-        assert!(ug.minimal_d_separator(&[0], &[1], &[], &[]).is_err());
+        assert!(ug.minimal_separator(&[0], &[1], &[], &[]).is_err());
         assert!(ug.adjustment_set_parents(&[0], &[1]).is_err());
         assert!(ug.adjustment_set_backdoor(&[0], &[1]).is_err());
         assert!(ug.adjustment_set_optimal(&[0], &[1]).is_err());
@@ -1427,6 +1560,23 @@ mod tests {
         assert_eq!(
             pdag.resolve_class(GraphClass::Auto).unwrap(),
             GraphClass::Pdag
+        );
+
+        let mut mpdag =
+            GraphSession::from_snapshot(Arc::clone(&snapshot), 3, true, GraphClass::Mpdag);
+        let mut mpdag_edges = EdgeBuffer::new();
+        mpdag_edges.push(0, 2, d);
+        mpdag_edges.push(1, 2, d);
+        mpdag.set_edges(mpdag_edges);
+        assert!(matches!(&*mpdag.view().unwrap(), GraphView::Pdag(_)));
+        assert_eq!(
+            mpdag.resolve_class(GraphClass::Mpdag).unwrap(),
+            GraphClass::Mpdag
+        );
+        assert_eq!(
+            mpdag.resolve_class(GraphClass::Auto).unwrap(),
+            // AUTO prioritizes DAG over (M)PDAG when both are valid.
+            GraphClass::Dag
         );
 
         let mut ug = GraphSession::from_snapshot(Arc::clone(&snapshot), 2, true, GraphClass::Ug);
@@ -1677,8 +1827,10 @@ mod tests {
         e.push(1, 2, b);
         admg.set_edges(e);
 
-        // m_separated through ADMG session
-        assert!(admg.m_separated(&[0], &[2], &[1]).unwrap());
+        // m_separated through ADMG session.
+        // 0 --> 1 <-> 2 lifts to 0 -> 1, U -> 1, U -> 2; conditioning on the
+        // collider 1 opens the path, so 0 is m-connected to 2 given {1}.
+        assert!(!admg.m_separated(&[0], &[2], &[1]).unwrap());
 
         // anteriors_of errors on ADMG (not supported)
         let err = admg.anteriors_of(0).unwrap_err();
@@ -1797,7 +1949,7 @@ mod tests {
 
         // Error paths for PDAG
         assert!(pdag.d_separated(&[0], &[2], &[1]).is_err());
-        assert!(pdag.minimal_d_separator(&[0], &[2], &[], &[]).is_err());
+        assert!(pdag.minimal_separator(&[0], &[2], &[], &[]).is_err());
         assert!(pdag.moralize().is_err());
         assert!(pdag.latent_project(&[0]).is_err());
         assert!(pdag.districts().is_err());
@@ -1910,7 +2062,7 @@ mod tests {
         assert!(dag.spouses_of(0).is_err());
         assert!(dag.exogenous_nodes(false).is_err());
         assert!(dag.d_separated(&[0], &[1], &[]).is_err());
-        assert!(dag.minimal_d_separator(&[0], &[1], &[], &[0, 1]).is_err());
+        assert!(dag.minimal_separator(&[0], &[1], &[], &[0, 1]).is_err());
         assert!(dag.m_separated(&[0], &[1], &[]).is_err());
         assert!(dag.adjustment_set_parents(&[0], &[1]).is_err());
         assert!(dag.adjustment_set_backdoor(&[0], &[1]).is_err());
