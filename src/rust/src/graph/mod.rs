@@ -11,15 +11,21 @@ use std::{
 
 pub mod admg;
 pub mod ag;
+pub mod aid;
 pub mod alg;
 pub mod builder;
+pub mod cpdag;
 pub mod dag;
 pub mod error;
+pub mod mpdag;
 pub mod packed;
 pub mod pdag;
 pub mod session;
+pub mod traits;
 pub mod ug;
 pub mod view;
+pub use cpdag::Cpdag;
+pub use mpdag::Mpdag;
 pub use view::GraphView;
 pub use view::NeighborMode;
 pub mod graphml;

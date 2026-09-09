@@ -5,6 +5,8 @@ use super::Dag;
 use crate::edges::EdgeClass;
 use crate::graph::admg::Admg;
 use crate::graph::alg::{csr, meek};
+use crate::graph::cpdag::Cpdag;
+use crate::graph::mpdag::Mpdag;
 use crate::graph::pdag::Pdag;
 use crate::graph::ug::Ug;
 use crate::graph::CaugiGraph;
@@ -650,14 +652,18 @@ impl Dag {
         Admg::new(Arc::new(core))
     }
 
-    /// Convert DAG to CPDAG using Meek's rules.
+    /// Convert DAG to CPDAG: the essential graph of the DAG's Markov
+    /// equivalence class (skeleton, oriented v-structures, then Meek closure).
+    ///
+    /// The result is a genuine CPDAG — its chain components are chordal and every
+    /// arrow is strongly protected — so it is wrapped directly as a [`Cpdag`].
     ///
     /// # References
     ///
     /// C. Meek (1995). Causal inference and causal explanation with background
     /// knowledge. In *Proceedings of the Eleventh Conference on Uncertainty in
     /// Artificial Intelligence (UAI-95)*, pp. 403–411. Morgan Kaufmann.
-    pub fn to_cpdag(&self) -> Result<Pdag, String> {
+    pub fn to_cpdag(&self) -> Result<Cpdag, String> {
         let n = self.n() as usize;
 
         let mut pa: Vec<HashSet<u32>> = vec![HashSet::new(); n];
@@ -764,7 +770,9 @@ impl Dag {
             /*simple=*/ true,
             self.core_ref().registry.clone(),
         )?;
-        Pdag::new(Arc::new(core))
+        let pdag = Pdag::new(Arc::new(core))?;
+        let mpdag = Mpdag::from_closed_unchecked(pdag);
+        Ok(Cpdag::from_valid_unchecked(mpdag))
     }
 }
 

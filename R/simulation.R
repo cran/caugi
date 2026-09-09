@@ -8,10 +8,13 @@
 #' of `m` or `p` must be supplied.
 #' @param p Numeric in `[0,1]`. Probability of edge creation. Exactly one of
 #' `m` or `p` must be supplied.
-#' @param class "DAG" or "CPDAG".
+#' @param class "DAG" or "CPDAG". When `"CPDAG"`, the result is the CPDAG
+#'   (essential graph) of the sampled DAG's Markov equivalence class, returned
+#'   with class `"CPDAG"`.
 #' @param seed Optional integer; random seed for reproducibility.
 #'
-#' @returns The sampled `caugi` object.
+#' @returns The sampled `caugi` object. `class = "DAG"` returns a `"DAG"`;
+#'   `class = "CPDAG"` returns a `"CPDAG"`.
 #'
 #' @examples
 #' # generate a random DAG with 5 nodes and 4 edges

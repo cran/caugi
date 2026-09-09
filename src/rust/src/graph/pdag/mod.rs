@@ -2,6 +2,7 @@
 //! Pdag wrapper with O(1) slice queries via packed neighborhoods.
 
 mod cpdag;
+mod enumerate;
 mod transforms;
 
 use super::error::PdagError;
@@ -183,7 +184,12 @@ impl Pdag {
 impl Pdag {
     #[inline]
     pub(crate) fn adjacent(&self, a: u32, b: u32) -> bool {
-        self.neighbors_of(a).binary_search(&b).is_ok()
+        // `neighbors_of` concatenates three individually-sorted buckets, so the
+        // combined slice is not globally sorted and cannot be binary-searched.
+        // Search each sorted bucket separately instead.
+        self.parents_of(a).binary_search(&b).is_ok()
+            || self.children_of(a).binary_search(&b).is_ok()
+            || self.undirected_of(a).binary_search(&b).is_ok()
     }
 
     #[inline]
@@ -224,6 +230,23 @@ impl Pdag {
             }
         }
         false
+    }
+}
+
+impl crate::graph::traits::Acyclic for Pdag {}
+impl crate::graph::traits::NoBidirected for Pdag {}
+impl crate::graph::traits::DirectedNeighbors for Pdag {
+    #[inline]
+    fn n(&self) -> u32 {
+        Pdag::n(self)
+    }
+    #[inline]
+    fn parents_of(&self, i: u32) -> &[u32] {
+        Pdag::parents_of(self, i)
+    }
+    #[inline]
+    fn children_of(&self, i: u32) -> &[u32] {
+        Pdag::children_of(self, i)
     }
 }
 

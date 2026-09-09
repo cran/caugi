@@ -9,12 +9,13 @@ pub mod graph;
 use edges::{EdgeClass, EdgeRegistry, EdgeSpec, Mark};
 use graph::builder::GraphBuilder;
 
-#[cfg(feature = "gadjid")]
-use graph::metrics::aid;
-use graph::metrics::{hd, shd_with_perm};
+use graph::aid;
+use graph::metrics::{hd_with_perm, shd_with_perm};
 
 use graph::view::GraphView;
-use graph::{admg::Admg, ag::Ag, dag::Dag, pdag::Pdag, ug::Ug, CaugiGraph};
+use graph::{
+    admg::Admg, ag::Ag, cpdag::Cpdag, dag::Dag, mpdag::Mpdag, pdag::Pdag, ug::Ug, CaugiGraph,
+};
 use std::sync::Arc;
 
 // ---------- helpers ----------
@@ -359,6 +360,8 @@ fn graph_class_from_view(view: &GraphView) -> GraphClass {
     match view {
         GraphView::Dag(_) => GraphClass::Dag,
         GraphView::Pdag(_) => GraphClass::Pdag,
+        GraphView::Mpdag(_) => GraphClass::Mpdag,
+        GraphView::Cpdag(_) => GraphClass::Cpdag,
         GraphView::Ug(_) => GraphClass::Ug,
         GraphView::Admg(_) => GraphClass::Admg,
         GraphView::Ag(_) => GraphClass::Ag,
@@ -370,6 +373,8 @@ fn graph_class_label_from_view(view: &GraphView) -> &'static str {
     match view {
         GraphView::Dag(_) => "DAG",
         GraphView::Pdag(_) => "PDAG",
+        GraphView::Mpdag(_) => "MPDAG",
+        GraphView::Cpdag(_) => "CPDAG",
         GraphView::Ug(_) => "UG",
         GraphView::Admg(_) => "ADMG",
         GraphView::Ag(_) => "AG",
@@ -554,12 +559,19 @@ fn graphview_new(core: ExternalPtr<CaugiGraph>, class: &str) -> ExternalPtr<Grap
             let dag = Dag::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
             ExternalPtr::new(GraphView::Dag(Arc::new(dag)))
         }
-        "PDAG" | "CPDAG" | "MPDAG" => {
+        "PDAG" => {
             let pdag = Pdag::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
-            if class.trim().eq_ignore_ascii_case("MPDAG") && !pdag.is_meek_closed() {
-                throw_r_error("graph is not MPDAG (not closed under Meek rules)");
-            }
             ExternalPtr::new(GraphView::Pdag(Arc::new(pdag)))
+        }
+        "MPDAG" => {
+            let pdag = Pdag::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
+            let mpdag = Mpdag::try_new(pdag).unwrap_or_else(|e| throw_r_error(e));
+            ExternalPtr::new(GraphView::Mpdag(Arc::new(mpdag)))
+        }
+        "CPDAG" => {
+            let pdag = Pdag::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
+            let cpdag = Cpdag::try_new(pdag).unwrap_or_else(|e| throw_r_error(e));
+            ExternalPtr::new(GraphView::Cpdag(Arc::new(cpdag)))
         }
         "UG" => {
             let ug = Ug::new(Arc::clone(&core_arc)).unwrap_or_else(|e| throw_r_error(e));
@@ -634,34 +646,29 @@ fn rs_shd(mut s1: ExternalPtr<GraphSession>, mut s2: ExternalPtr<GraphSession>) 
 fn rs_hd(mut s1: ExternalPtr<GraphSession>, mut s2: ExternalPtr<GraphSession>) -> Robj {
     let core1 = s1.as_mut().core().unwrap_or_else(|e| throw_r_error(e));
     let core2 = s2.as_mut().core().unwrap_or_else(|e| throw_r_error(e));
-    let (norm, count) = hd(core1.as_ref(), core2.as_ref());
+    if core1.n() != core2.n() {
+        throw_r_error("graph size mismatch");
+    }
+    let names1 = s1.as_ref().names();
+    let names2 = s2.as_ref().names();
+    let perm = build_perm_from_string_slices(names1, names2).unwrap_or_else(|e| throw_r_error(e));
+    let (norm, count) = hd_with_perm(core1.as_ref(), core2.as_ref(), &perm);
     list!(normalized = norm, count = count as i32).into_robj()
 }
 
-#[cfg(feature = "gadjid")]
 fn to_aid_input(view: &GraphView) -> std::result::Result<aid::AidInput<'_>, String> {
     match view {
         GraphView::Dag(d) => Ok(aid::AidInput::Dag(d.as_ref())),
-        GraphView::Pdag(p) => Ok(aid::AidInput::Pdag(p.as_ref())),
-        _ => Err("expected graph of type DAG or PDAG".into()),
+        GraphView::Cpdag(c) => Ok(aid::AidInput::Cpdag(c.as_ref())),
+        _ => Err("expected graph of type DAG or CPDAG".into()),
     }
 }
 
-/// Type of AID metric to compute.
-#[cfg(feature = "gadjid")]
-#[derive(Clone, Copy)]
-enum AidType {
-    Oset,
-    Ancestor,
-    Parent,
-}
-
 /// Compute AID metric for two graph sessions.
-#[cfg(feature = "gadjid")]
 fn session_aid_impl(
     s_true: &mut ExternalPtr<GraphSession>,
     s_guess: &mut ExternalPtr<GraphSession>,
-    aid_type: AidType,
+    aid_type: aid::AidType,
 ) -> Robj {
     let core_t = s_true.as_mut().core().unwrap_or_else(|e| throw_r_error(e));
     let core_g = s_guess.as_mut().core().unwrap_or_else(|e| throw_r_error(e));
@@ -676,12 +683,8 @@ fn session_aid_impl(
     let g_view = s_guess.as_mut().view().unwrap_or_else(|e| throw_r_error(e));
     let t = to_aid_input(t_view.as_ref()).unwrap_or_else(|e| throw_r_error(e.to_string()));
     let g = to_aid_input(g_view.as_ref()).unwrap_or_else(|e| throw_r_error(e.to_string()));
-    let (score, count) = match aid_type {
-        AidType::Oset => aid::oset_aid_align(t, g, &inv),
-        AidType::Ancestor => aid::ancestor_aid_align(t, g, &inv),
-        AidType::Parent => aid::parent_aid_align(t, g, &inv),
-    }
-    .unwrap_or_else(|e| throw_r_error(e.to_string()));
+    let (score, count) =
+        aid::aid(aid_type, t, g, &inv).unwrap_or_else(|e| throw_r_error(e.to_string()));
     list!(score = score, count = count as i32).into_robj()
 }
 
@@ -713,7 +716,6 @@ fn build_perm_from_string_slices(
     Ok(perm)
 }
 
-#[cfg(feature = "gadjid")]
 fn build_inv_from_string_slices(
     names_true: &[String],
     names_guess: &[String],
@@ -746,31 +748,28 @@ fn build_inv_from_string_slices(
     Ok(inv)
 }
 
-#[cfg(feature = "gadjid")]
 #[extendr]
 fn rs_ancestor_aid(
     mut s_true: ExternalPtr<GraphSession>,
     mut s_guess: ExternalPtr<GraphSession>,
 ) -> Robj {
-    session_aid_impl(&mut s_true, &mut s_guess, AidType::Ancestor)
+    session_aid_impl(&mut s_true, &mut s_guess, aid::AidType::Ancestor)
 }
 
-#[cfg(feature = "gadjid")]
 #[extendr]
 fn rs_oset_aid(
     mut s_true: ExternalPtr<GraphSession>,
     mut s_guess: ExternalPtr<GraphSession>,
 ) -> Robj {
-    session_aid_impl(&mut s_true, &mut s_guess, AidType::Oset)
+    session_aid_impl(&mut s_true, &mut s_guess, aid::AidType::Oset)
 }
 
-#[cfg(feature = "gadjid")]
 #[extendr]
 fn rs_parent_aid(
     mut s_true: ExternalPtr<GraphSession>,
     mut s_guess: ExternalPtr<GraphSession>,
 ) -> Robj {
-    session_aid_impl(&mut s_true, &mut s_guess, AidType::Parent)
+    session_aid_impl(&mut s_true, &mut s_guess, aid::AidType::Parent)
 }
 
 // ── Serialization ──────────────────────────────────────────────────────────────
@@ -1188,8 +1187,8 @@ fn rs_edges_df(session: ExternalPtr<GraphSession>) -> Robj {
 #[extendr]
 fn rs_is_valid(session: ExternalPtr<GraphSession>) -> Robj {
     list!(
-        core_valid = session.as_ref().is_core_valid(),
-        view_valid = session.as_ref().is_view_valid()
+        core_valid = session.as_ref().built_core().is_some(),
+        view_valid = session.as_ref().built_view().is_some()
     )
     .into_robj()
 }
@@ -1589,6 +1588,29 @@ fn rs_meek_closure(mut session: ExternalPtr<GraphSession>) -> ExternalPtr<GraphS
 }
 
 #[extendr]
+fn rs_enumerate_dags(mut session: ExternalPtr<GraphSession>) -> Robj {
+    let views = session
+        .as_mut()
+        .enumerate_dags()
+        .unwrap_or_else(|e| throw_r_error(e));
+    let names: Vec<String> = session.as_ref().names().to_vec();
+    let robjs: Vec<Robj> = views
+        .into_iter()
+        .map(|v| Robj::from(ExternalPtr::new(session_from_view(v, names.clone()))))
+        .collect();
+    extendr_api::prelude::List::from_values(robjs).into_robj()
+}
+
+#[extendr]
+fn rs_count_dags(mut session: ExternalPtr<GraphSession>) -> f64 {
+    session
+        .as_mut()
+        .count_dags()
+        .map(|c| c as f64)
+        .unwrap_or_else(|e| throw_r_error(e))
+}
+
+#[extendr]
 fn rs_skeleton(mut session: ExternalPtr<GraphSession>) -> ExternalPtr<GraphSession> {
     let view = session
         .as_mut()
@@ -1704,10 +1726,11 @@ fn induced_subgraph_session_from_keep(
         names.push(s.names()[old_i as usize].clone());
     }
 
-    // Fast path: if CSR core is already built, use CSR-induced subgraph.
-    // This only touches the adjacency of kept nodes instead of scanning all edges.
-    if s.is_core_valid() {
-        let core = s.core().unwrap_or_else(|e| throw_r_error(e));
+    // Fast path: if the CSR core is already built, reuse it via a CSR-induced
+    // subgraph — only touches the adjacency of kept nodes instead of scanning
+    // all edges. `built_core` never forces a build, so the slow path below
+    // stays build-free when the core isn't cached yet.
+    if let Some(core) = s.built_core() {
         let (sub_core, _new_to_old, _old_to_new) = core
             .induced_subgraph(keep_u)
             .unwrap_or_else(|e| throw_r_error(e));
@@ -2181,6 +2204,8 @@ extendr_module! {
     fn rs_is_mpdag;
     fn rs_to_cpdag;
     fn rs_meek_closure;
+    fn rs_enumerate_dags;
+    fn rs_count_dags;
     fn rs_skeleton;
     fn rs_moralize;
     fn rs_latent_project;

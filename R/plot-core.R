@@ -30,7 +30,9 @@
 #'   Supports:
 #'   * Appearance (passed to `gpar()`): `col`, `lwd`, `lty`, `alpha`, `fill`.
 #'   * Geometry: `arrow_size` (arrow length in mm, default 3), `circle_size`
-#'     (radius of endpoint circles for partial edges in mm, default 1.5)
+#'     (radius of endpoint circles for partial edges in mm, default 1.5),
+#'     `route` (logical, default `TRUE`; when `TRUE`, edges automatically bend
+#'     around non-incident nodes they would otherwise pass through)
 #'   * Local overrides via `by_edge`: a named list with:
 #'       - Node-wide styles: applied to all edges touching a node, e.g.
 #'         `A = list(col = "red", lwd = 2)`
@@ -129,12 +131,17 @@
 #' # Respect aspect ratio (1:1)
 #' plot(cg, asp = 1)
 #'
-#' @name plot
+#' @name plot.caugi
+#' @aliases plot
+#' @usage \method{plot}{caugi}(x, layout = "auto", node_style = list(),
+#'   edge_style = list(), label_style = list(), tier_style = list(),
+#'   main = NULL, title_style = list(), asp = NA,
+#'   outer_margin = grid::unit(2, "mm"), title_gap = grid::unit(1, "lines"), ...)
 #' @family plotting
 #' @concept plotting
 #'
 #' @export
-S7::method(plot, caugi) <- function(
+plot.caugi <- function(
   x,
   layout = "auto",
   node_style = list(),
@@ -489,6 +496,7 @@ S7::method(plot, caugi) <- function(
 
   caugi_plot(grob = final_grob)
 }
+S7::method(plot, caugi) <- plot.caugi
 
 #' @export
 S7::method(print, caugi_plot) <- function(x, ...) {
@@ -543,19 +551,21 @@ S7::method(plot, caugi_plot) <- function(x, newpage = TRUE, ...) {
 #' p1 + p2
 #'
 #' @name add-caugi_plot-caugi_plot
-NULL
-
-S7::method(`+`, list(caugi_plot, caugi_plot)) <- function(e1, e2) {
+#' @aliases +.caugi_plot |.caugi_plot pipe-caugi_plot-caugi_plot
+#' @usage \method{+}{caugi_plot}(e1, e2)
+#'
+#' \method{|}{caugi_plot}(e1, e2)
+#' @export
+`+.caugi_plot` <- function(e1, e2) {
   compose_plots(e1, e2, horizontal = TRUE)
 }
+S7::method(`+`, list(caugi_plot, caugi_plot)) <- `+.caugi_plot`
 
-#' @rdname add-caugi_plot-caugi_plot
-#' @name pipe-caugi_plot-caugi_plot
-NULL
-
-S7::method(`|`, list(caugi_plot, caugi_plot)) <- function(e1, e2) {
+#' @export
+`|.caugi_plot` <- function(e1, e2) {
   e1 + e2
 }
+S7::method(`|`, list(caugi_plot, caugi_plot)) <- `|.caugi_plot`
 
 #' Compose Plots Vertically
 #'
@@ -593,11 +603,13 @@ S7::method(`|`, list(caugi_plot, caugi_plot)) <- function(e1, e2) {
 #' (p1 + p2) / p1
 #'
 #' @name divide-caugi_plot-caugi_plot
-NULL
-
-S7::method(`/`, list(caugi_plot, caugi_plot)) <- function(e1, e2) {
+#' @aliases /.caugi_plot
+#' @usage \method{/}{caugi_plot}(e1, e2)
+#' @export
+`/.caugi_plot` <- function(e1, e2) {
   compose_plots(e1, e2, horizontal = FALSE)
 }
+S7::method(`/`, list(caugi_plot, caugi_plot)) <- `/.caugi_plot`
 
 #' Internal function for plot composition
 #'

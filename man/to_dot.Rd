@@ -30,7 +30,10 @@ The function handles different edge types:
 \item Directed edges (\verb{-->}) use \verb{->} in DOT
 \item Undirected edges (\verb{---}) use \verb{--} in DOT (or \verb{->} with \code{dir=none} in digraphs)
 \item Bidirected edges (\verb{<->}) use \verb{->} with \verb{[dir=both]} attribute
-\item Partial edges (\verb{o->}) use \verb{->} with \verb{[arrowtail=odot, dir=both]} attribute
+\item Partial edges (\verb{o->}) use \verb{->} with \verb{[dir=both, arrowtail=odot]} attribute
+\item Partial edges (\code{--o}) use \verb{->} with \verb{[arrowhead=odot]} attribute
+\item Partial edges (\code{o-o}) use \verb{->} with
+\verb{[dir=both, arrowtail=odot, arrowhead=odot]} attribute
 }
 }
 \examples{
@@ -54,26 +57,26 @@ dot <- to_dot(
 
 }
 \seealso{
-Other export: 
-\code{\link{caugi_deserialize}()},
-\code{\link{caugi_dot}()},
-\code{\link{caugi_export}()},
-\code{\link{caugi_graphml}()},
-\code{\link{caugi_mermaid}()},
-\code{\link{caugi_serialize}()},
+Other export:
+\code{\link[=caugi_deserialize]{caugi_deserialize()}},
+\code{\link[=caugi_dot]{caugi_dot()}},
+\code{\link[=caugi_export]{caugi_export()}},
+\code{\link[=caugi_graphml]{caugi_graphml()}},
+\code{\link[=caugi_mermaid]{caugi_mermaid()}},
+\code{\link[=caugi_serialize]{caugi_serialize()}},
 \code{\link{export-classes}},
 \code{\link{format-caugi}},
 \code{\link{format-dot}},
 \code{\link{format-graphml}},
 \code{\link{format-mermaid}},
-\code{\link{knit_print.caugi_export}},
-\code{\link{read_caugi}()},
-\code{\link{read_graphml}()},
-\code{\link{to_graphml}()},
-\code{\link{to_mermaid}()},
-\code{\link{write_caugi}()},
-\code{\link{write_dot}()},
-\code{\link{write_graphml}()},
-\code{\link{write_mermaid}()}
+\code{\link[=knit_print.caugi_export]{knit_print.caugi_export()}},
+\code{\link[=read_caugi]{read_caugi()}},
+\code{\link[=read_graphml]{read_graphml()}},
+\code{\link[=to_graphml]{to_graphml()}},
+\code{\link[=to_mermaid]{to_mermaid()}},
+\code{\link[=write_caugi]{write_caugi()}},
+\code{\link[=write_dot]{write_dot()}},
+\code{\link[=write_graphml]{write_graphml()}},
+\code{\link[=write_mermaid]{write_mermaid()}}
 }
 \concept{export}

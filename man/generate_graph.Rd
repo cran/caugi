@@ -15,12 +15,15 @@ of \code{m} or \code{p} must be supplied.}
 \item{p}{Numeric in \verb{[0,1]}. Probability of edge creation. Exactly one of
 \code{m} or \code{p} must be supplied.}
 
-\item{class}{"DAG" or "CPDAG".}
+\item{class}{"DAG" or "CPDAG". When \code{"CPDAG"}, the result is the CPDAG
+(essential graph) of the sampled DAG's Markov equivalence class, returned
+with class \code{"CPDAG"}.}
 
 \item{seed}{Optional integer; random seed for reproducibility.}
 }
 \value{
-The sampled \code{caugi} object.
+The sampled \code{caugi} object. \code{class = "DAG"} returns a \code{"DAG"};
+\code{class = "CPDAG"} returns a \code{"CPDAG"}.
 }
 \description{
 Sample a random DAG or CPDAG using
@@ -35,8 +38,8 @@ cpdag <- generate_graph(n = 5, p = 0.3, class = "CPDAG")
 
 }
 \seealso{
-Other simulation functions: 
-\code{\link{simulate_data}()}
+Other simulation functions:
+\code{\link[=simulate_data]{simulate_data()}}
 }
 \concept{simulation}
 \concept{simulation functions}

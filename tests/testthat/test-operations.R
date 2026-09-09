@@ -718,13 +718,49 @@ test_that("dag_from_pdag converts a valid PDAG to a DAG", {
   expect_true(all(edges_DAG$edge == "-->"))
 })
 
+test_that("dag_from_pdag handles a sink with multiple undirected neighbors (#298)", {
+  pdag <- caugi(
+    V10 %---% V2 + V7,
+    V2 %-->% V1,
+    V2 %---% V3 + V7,
+    V3 %-->% V5,
+    V3 %---% V7,
+    V4 %-->% V8,
+    V5 %-->% V1,
+    V6 %-->% V8,
+    V6 %---% V9,
+    V7 %-->% V4,
+    V9 %-->% V1 + V4 + V5,
+    class = "PDAG"
+  )
+
+  dag <- dag_from_pdag(pdag)
+
+  expected <- caugi(
+    V2 %-->% V1 + V10,
+    V3 %-->% V2 + V5,
+    V4 %-->% V8,
+    V5 %-->% V1,
+    V6 %-->% V8,
+    V7 %-->% V10 + V2 + V3 + V4,
+    V9 %-->% V1 + V4 + V5 + V6,
+    class = "DAG"
+  )
+
+  expect_equal(dag, expected)
+})
+
+
 test_that("dag_from_pdag errors on non-PDAG input", {
   cg <- caugi(
     A %-->% B,
     B %-->% C,
     class = "DAG"
   )
-  expect_error(dag_from_pdag(cg), "Input must be a caugi PDAG/MPDAG graph")
+  expect_error(
+    dag_from_pdag(cg),
+    "Input must be a caugi PDAG/MPDAG/CPDAG graph"
+  )
 })
 
 test_that("dag_from_pdag errors if PDAG cannot be extended to a DAG", {
@@ -736,6 +772,25 @@ test_that("dag_from_pdag errors if PDAG cannot be extended to a DAG", {
     class = "PDAG"
   )
   expect_error(dag_from_pdag(PDAG), "PDAG cannot be extended to a DAG")
+})
+
+test_that("dag_from_pdag accepts the deprecated `PDAG` argument with a warning", {
+  pdag <- caugi(
+    A %---% B,
+    B %---% C,
+    class = "PDAG"
+  )
+  sig <- function(cg) {
+    e <- edges(cg)
+    sort(paste0(as.character(e$from), "->", as.character(e$to)))
+  }
+  expect_warning(
+    dag <- dag_from_pdag(PDAG = pdag),
+    "`PDAG` argument.*deprecated"
+  )
+  expect_equal(dag@graph_class, "DAG")
+  # The deprecated alias yields the same result as the current argument.
+  expect_setequal(sig(dag), sig(dag_from_pdag(pdag)))
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -820,7 +875,7 @@ test_that("meek_closure is idempotent and preserves node names", {
   c1 <- meek_closure(g)
   c2 <- meek_closure(c1)
 
-  expect_equal(c1@graph_class, "PDAG")
+  expect_equal(c1@graph_class, "MPDAG")
   expect_equal(nodes(c1)$name, nodes(g)$name)
   expect_equal(edges(c1), edges(c2))
 })
@@ -920,9 +975,9 @@ test_that("dag_from_pdag orients each undirected edge exactly once", {
   expect_equal(nrow(ed), 3L)
 })
 
-test_that("pgmpy Meek fixtures: rs_to_cpdag on PDAG applies Meek closure", {
+test_that("pgmpy Meek fixtures: meek_closure on PDAG applies Meek closure", {
   cpdag_from_pdag <- function(pdag) {
-    cp_session <- rs_to_cpdag(pdag@session)
+    cp_session <- rs_meek_closure(pdag@session)
     .session_to_caugi(cp_session, node_names = nodes(pdag)$name)
   }
   edge_set <- function(g) {
@@ -1163,5 +1218,212 @@ test_that("not_m_separated helper matches R reference across subset scenarios", 
       cond_vars = cond
     )
     expect_identical(rust, ref)
+  }
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ───────────────────────── Enumerate / count DAGs in MEC ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Canonical signature: edge set as a sorted character vector "from->to".
+.dag_edge_signature <- function(cg) {
+  e <- edges(cg)
+  if (nrow(e) == 0L) {
+    return(character(0))
+  }
+  sort(paste0(as.character(e$from), "->", as.character(e$to)))
+}
+
+test_that("enumerate_dags returns 3 DAGs for an A--B--C chain", {
+  pdag <- caugi(
+    A %---% B,
+    B %---% C,
+    class = "PDAG"
+  )
+
+  dags <- enumerate_dags(pdag)
+  expect_length(dags, 3L)
+  expect_equal(count_dags(pdag), 3)
+
+  for (d in dags) {
+    expect_equal(d@graph_class, "DAG")
+    expect_true(all(edges(d)$edge == "-->"))
+    sig <- .dag_edge_signature(d)
+    # No DAG may contain the v-structure A->B<-C.
+    expect_false(all(c("A->B", "C->B") %in% sig))
+  }
+
+  sigs <- vapply(
+    dags,
+    function(d) paste(.dag_edge_signature(d), collapse = "|"),
+    character(1)
+  )
+  expect_length(unique(sigs), 3L)
+})
+
+test_that("enumerate_dags returns the singleton for a v-structure CPDAG", {
+  pdag <- caugi(
+    A %-->% C,
+    B %-->% C,
+    class = "PDAG"
+  )
+
+  dags <- enumerate_dags(pdag)
+  expect_length(dags, 1L)
+  expect_equal(count_dags(pdag), 1)
+  expect_setequal(.dag_edge_signature(dags[[1]]), c("A->C", "B->C"))
+})
+
+test_that("enumerate_dags returns 6 DAGs for an undirected triangle", {
+  pdag <- caugi(
+    A %---% B,
+    A %---% C,
+    B %---% C,
+    class = "PDAG"
+  )
+
+  dags <- enumerate_dags(pdag)
+  expect_length(dags, 6L)
+  expect_equal(count_dags(pdag), 6)
+
+  sigs <- vapply(
+    dags,
+    function(d) paste(.dag_edge_signature(d), collapse = "|"),
+    character(1)
+  )
+  expect_length(unique(sigs), 6L)
+})
+
+test_that("enumerate_dags propagates background-knowledge orientations via Meek", {
+  # A->C<-B (fixed v-structure) plus C--D: Meek R1 forces C->D, so MEC = {one DAG}.
+  pdag <- caugi(
+    A %-->% C,
+    B %-->% C,
+    C %---% D,
+    class = "PDAG"
+  )
+
+  dags <- enumerate_dags(pdag)
+  expect_length(dags, 1L)
+  expect_setequal(
+    .dag_edge_signature(dags[[1]]),
+    c("A->C", "B->C", "C->D")
+  )
+})
+
+test_that("enumerate_dags includes the dag_from_pdag extension", {
+  pdag <- caugi(
+    A %---% B,
+    B %---% C,
+    class = "PDAG"
+  )
+  one <- dag_from_pdag(pdag)
+  all <- enumerate_dags(pdag)
+  target <- paste(.dag_edge_signature(one), collapse = "|")
+  sigs <- vapply(
+    all,
+    function(d) paste(.dag_edge_signature(d), collapse = "|"),
+    character(1)
+  )
+  expect_true(target %in% sigs)
+})
+
+test_that("count_dags agrees with length(enumerate_dags()) on mixed fixtures", {
+  fixtures <- list(
+    caugi(A %---% B, class = "PDAG"),
+    caugi(A %---% B, B %---% C, class = "PDAG"),
+    caugi(A %---% B, A %---% C, B %---% C, class = "PDAG"),
+    caugi(A %-->% C, B %-->% C, C %---% D, class = "PDAG"),
+    caugi(A %---% B, C %---% D, D %---% E, class = "PDAG")
+  )
+  for (p in fixtures) {
+    expect_equal(count_dags(p), length(enumerate_dags(p)))
+  }
+})
+
+test_that("enumerate_dags and count_dags reject non-PDAG input", {
+  admg <- caugi(A %<->% B, class = "ADMG")
+  expect_error(enumerate_dags(admg), "can only be applied to PDAGs")
+  expect_error(count_dags(admg), "can only be applied to PDAGs")
+})
+
+test_that("enumerate_dags rejects v-structures introduced by Meek R2/R3/R4 propagation", {
+  # Trial-8 fixture from random-CPDAG cross-validation against pcalg.
+  # Skeleton is dense enough that R2/R3/R4 propagation during enumeration
+  # can introduce new v-structures (3->2<-5 with 3 not adjacent to 5);
+  # those branches must be rejected. pcalg::pdag2allDags returns 0 here.
+  pdag <- caugi(
+    `7` %-->% `1`,
+    `7` %-->% `3`,
+    `7` %-->% `5`,
+    `7` %-->% `6`,
+    `1` %---% `2`,
+    `1` %---% `3`,
+    `1` %---% `4`,
+    `1` %---% `5`,
+    `1` %---% `6`,
+    `2` %---% `3`,
+    `2` %---% `4`,
+    `2` %---% `5`,
+    `2` %---% `6`,
+    `3` %---% `4`,
+    `4` %---% `5`,
+    `4` %---% `6`,
+    `5` %---% `6`,
+    nodes = c("1", "2", "3", "4", "5", "6", "7"),
+    class = "PDAG"
+  )
+  expect_equal(count_dags(pdag), 0)
+  expect_length(enumerate_dags(pdag), 0L)
+})
+
+test_that("enumerate_dags matches pcalg::pdag2allDags on random CPDAGs", {
+  skip_if_not_installed("pcalg")
+
+  # pcalg amat.cpdag convention: m[j, i] = 1, m[i, j] = 0  iff  i -> j.
+  # caugi's as_adjacency() uses the opposite convention, so transpose.
+  pcalg_sig <- function(row, p, nn) {
+    m <- matrix(row, p, p, byrow = TRUE, dimnames = list(nn, nn))
+    es <- character(0)
+    for (i in seq_len(p)) {
+      for (j in seq_len(p)) {
+        if (i != j && m[j, i] == 1 && m[i, j] == 0) {
+          es <- c(es, paste0(nn[i], "->", nn[j]))
+        }
+      }
+    }
+    paste(sort(es), collapse = "|")
+  }
+  caugi_sig <- function(cg) {
+    e <- edges(cg)
+    if (nrow(e) == 0L) {
+      return("")
+    }
+    paste(
+      sort(paste0(as.character(e$from), "->", as.character(e$to))),
+      collapse = "|"
+    )
+  }
+
+  for (seed in 1:8) {
+    cg <- generate_graph(n = 5, p = 0.4, class = "CPDAG", seed = seed)
+    adj <- t(as_adjacency(cg))
+    nn <- rownames(adj)
+
+    caugi_dags <- sort(vapply(enumerate_dags(cg), caugi_sig, character(1)))
+    pc <- pcalg::pdag2allDags(adj)
+    pcalg_dags <- if (
+      is.null(pc$dags) || !is.matrix(pc$dags) || nrow(pc$dags) == 0L
+    ) {
+      character(0)
+    } else {
+      sort(vapply(
+        seq_len(nrow(pc$dags)),
+        function(i) pcalg_sig(pc$dags[i, ], length(nn), nn),
+        character(1)
+      ))
+    }
+    expect_identical(caugi_dags, pcalg_dags)
+    expect_equal(count_dags(cg), length(pcalg_dags))
   }
 })

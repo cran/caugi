@@ -8,7 +8,9 @@
 #'
 #' @param x A `caugi` object.
 #'
-#' @name length
+#' @name length.caugi
+#' @aliases length
+#' @usage \method{length}{caugi}(x)
 #'
 #' @returns An integer representing the number of nodes.
 #'
@@ -30,9 +32,11 @@
 #' @concept methods
 #'
 #' @export
-S7::method(length, caugi) <- function(x) {
+#' @rawNamespace export(length)
+length.caugi <- function(x) {
   nrow(x@nodes)
 }
+S7::method(length, caugi) <- length.caugi
 
 #' Print a `caugi`
 #'
@@ -47,7 +51,10 @@ S7::method(length, caugi) <- function(x) {
 #'
 #' @returns The input `caugi` object, invisibly.
 #'
-#' @name print
+#' @name print.caugi
+#' @aliases print
+#' @usage \method{print}{caugi}(x, max_nodes = getOption("caugi.max_nodes"),
+#'   max_edges = getOption("caugi.max_edges"), ...)
 #'
 #' @examples
 #' cg <- caugi(A %-->% B, class = "DAG")
@@ -57,7 +64,7 @@ S7::method(length, caugi) <- function(x) {
 #' @concept methods
 #'
 #' @export
-S7::method(print, caugi) <- function(
+print.caugi <- function(
   x,
   max_nodes = getOption("caugi.max_nodes"),
   max_edges = getOption("caugi.max_edges"),
@@ -214,6 +221,7 @@ S7::method(print, caugi) <- function(
 
   invisible(x)
 }
+S7::method(print, caugi) <- print.caugi
 
 #' @title Fit items on a line
 #'
@@ -380,4 +388,40 @@ S7::method(print, caugi) <- function(
   } else {
     diffs
   }
+}
+
+#' Equality operators for caugi objects
+#'
+#' @description S3 methods for `==` and `!=` that compare two caugi objects by
+#' their graph content (nodes, edges, simple, class) rather than session
+#' identity. Returns `FALSE` (resp. `TRUE`) when the other operand is not a
+#' caugi object.
+#'
+#' @param e1,e2 A `caugi` object (one or both sides).
+#'
+#' @returns A single logical.
+#'
+#' @examples
+#' cg1 <- caugi(A %-->% B, class = "DAG")
+#' cg2 <- caugi(A %-->% B, class = "DAG")
+#' cg1 == cg2 # TRUE
+#' cg1 != caugi(A %-->% C, class = "DAG") # TRUE
+#'
+#' @family caugi methods
+#' @concept methods
+#'
+#' @name caugi-equality
+#' @keywords internal
+#' @export
+`==.caugi::caugi` <- function(e1, e2) {
+  if (!inherits(e1, "caugi::caugi") || !inherits(e2, "caugi::caugi")) {
+    return(FALSE)
+  }
+  isTRUE(`all.equal.caugi::caugi`(e1, e2))
+}
+
+#' @rdname caugi-equality
+#' @export
+`!=.caugi::caugi` <- function(e1, e2) {
+  !(e1 == e2)
 }

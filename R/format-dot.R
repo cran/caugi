@@ -16,6 +16,8 @@ NULL
 #'
 #' @param content A character string containing the DOT format graph.
 #'
+#' @returns A `caugi_dot` S7 object wrapping the DOT string.
+#'
 #' @family export
 #' @concept export
 #'
@@ -47,7 +49,10 @@ caugi_dot <- S7::new_class(
 #' * Directed edges (`-->`) use `->` in DOT
 #' * Undirected edges (`---`) use `--` in DOT (or `->` with `dir=none` in digraphs)
 #' * Bidirected edges (`<->`) use `->` with `[dir=both]` attribute
-#' * Partial edges (`o->`) use `->` with `[arrowtail=odot, dir=both]` attribute
+#' * Partial edges (`o->`) use `->` with `[dir=both, arrowtail=odot]` attribute
+#' * Partial edges (`--o`) use `->` with `[arrowhead=odot]` attribute
+#' * Partial edges (`o-o`) use `->` with
+#'   `[dir=both, arrowtail=odot, arrowhead=odot]` attribute
 #'
 #' @examples
 #' cg <- caugi(
@@ -87,8 +92,13 @@ to_dot <- function(
   # Start building DOT string
   lines <- character()
 
-  # Determine graph type based on edge types
-  has_directed <- any(edges_df$edge %in% c("-->", "o->", "<->"))
+  # Determine graph type based on edge types. Any edge carrying an endpoint
+  # mark other than a plain arrow or tail (bidirected, partial/circle edges)
+  # needs a digraph, since arrowheads/arrowtails cannot be drawn in an
+  # undirected `graph`.
+  has_directed <- any(
+    edges_df$edge %in% c("-->", "o->", "<->", "--o", "o-o")
+  )
 
   # Use digraph if any directed edges, otherwise graph
   graph_type <- if (has_directed) "digraph" else "graph"
@@ -164,6 +174,14 @@ to_dot <- function(
         operator <- "->"
         edge_attrs_list$dir <- "both"
         edge_attrs_list$arrowtail <- "odot"
+      } else if (edge_type == "--o") {
+        operator <- "->"
+        edge_attrs_list$arrowhead <- "odot"
+      } else if (edge_type == "o-o") {
+        operator <- "->"
+        edge_attrs_list$dir <- "both"
+        edge_attrs_list$arrowtail <- "odot"
+        edge_attrs_list$arrowhead <- "odot"
       } else {
         # Unknown edge type, default to directed
         operator <- "->"

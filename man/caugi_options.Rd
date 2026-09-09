@@ -45,6 +45,8 @@ The plot options are nested under the \code{plot} key:
 \item \code{arrow_size}: Arrow size in mm (default: \code{3})
 \item \code{circle_size}: Radius of endpoint circles for partial edges in mm (default: \code{1.5})
 \item \code{fill}: Arrow/line color (default: \code{"black"})
+\item \code{route}: Whether edges automatically bend around non-incident nodes they
+would otherwise cross (default: \code{TRUE})
 }
 \item \code{label_style}: List of label text parameters (see \code{\link[grid:gpar]{grid::gpar()}})
 \item \code{title_style}: List of title text parameters:
@@ -56,7 +58,7 @@ The plot options are nested under the \code{plot} key:
 }
 
 Options set via \code{caugi_options()} serve as global defaults that can be
-overridden by arguments to \code{\link[=plot]{plot()}}.
+overridden by arguments to \code{\link[=plot.caugi]{plot.caugi()}}.
 }
 \examples{
 # Query all options
@@ -93,7 +95,7 @@ caugi_options(caugi_default_options())
 
 }
 \seealso{
-\code{\link[=plot]{plot()}} for per-plot style arguments, \code{\link[grid:gpar]{grid::gpar()}} for
+\code{\link[=plot.caugi]{plot.caugi()}} for per-plot style arguments, \code{\link[grid:gpar]{grid::gpar()}} for
 available graphical parameters
 }
 \concept{options}

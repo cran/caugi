@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Comparisons with Other Packages</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Comparisons with Other Packages</h1>
+
+
+
+<p>In this vignette, we compare <code>caugi</code> to some of the most
+widely used graph packages in R, Python, and Java.</p>
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>The following table summarizes the packages included in this
+comparison, their general focus, and the languages they are packaged
+for.</p>
+<table style="width:100%;">
+<caption>An overview of the packages included in this
+comparison</caption>
+<colgroup>
+<col width="9%" />
+<col width="26%" />
+<col width="26%" />
+<col width="37%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Package</th>
+<th>Type</th>
+<th>Language</th>
+<th align="left">URL</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">igraph</td>
+<td>General-purpose</td>
+<td>R, Python, C</td>
+<td align="left"><a href="https://igraph.org" class="uri">https://igraph.org</a></td>
+</tr>
+<tr class="even">
+<td align="left">graph</td>
+<td>General-purpose</td>
+<td>R</td>
+<td align="left"><a href="https://github.com/Bioconductor/graph" class="uri">https://github.com/Bioconductor/graph</a></td>
+</tr>
+<tr class="odd">
+<td align="left">gRbase</td>
+<td>Graphical models</td>
+<td>R</td>
+<td align="left"><a href="https://CRAN.R-project.org/package=gRbase" class="uri">https://CRAN.R-project.org/package=gRbase</a></td>
+</tr>
+<tr class="even">
+<td align="left">pcalg</td>
+<td>Causal graphs</td>
+<td>R</td>
+<td align="left"><a href="https://pcalg.r-forge.r-project.org" class="uri">https://pcalg.r-forge.r-project.org</a></td>
+</tr>
+<tr class="odd">
+<td align="left">dagitty</td>
+<td>Causal graphs</td>
+<td>R, Web</td>
+<td align="left"><a href="https://www.dagitty.net" class="uri">https://www.dagitty.net</a></td>
+</tr>
+<tr class="even">
+<td align="left">bnlearn</td>
+<td>Bayesian networks</td>
+<td>R</td>
+<td align="left"><a href="https://www.bnlearn.com" class="uri">https://www.bnlearn.com</a></td>
+</tr>
+<tr class="odd">
+<td align="left">ggm</td>
+<td>Graphical Markov models</td>
+<td>R</td>
+<td align="left"><a href="https://CRAN.R-project.org/package=ggm" class="uri">https://CRAN.R-project.org/package=ggm</a></td>
+</tr>
+<tr class="even">
+<td align="left">MixedGraphs</td>
+<td>Causal graphs</td>
+<td>R</td>
+<td align="left"><a href="https://github.com/rje42/MixedGraphs" class="uri">https://github.com/rje42/MixedGraphs</a></td>
+</tr>
+<tr class="odd">
+<td align="left">NetworkX</td>
+<td>General-purpose</td>
+<td>Python</td>
+<td align="left"><a href="https://networkx.org" class="uri">https://networkx.org</a></td>
+</tr>
+<tr class="even">
+<td align="left">pgmpy</td>
+<td>Probabilitistc graphical models</td>
+<td>Python</td>
+<td align="left"><a href="https://github.com/pgmpy/pgmpy" class="uri">https://github.com/pgmpy/pgmpy</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Tetrad</td>
+<td>Causal graphs</td>
+<td>Java, CLI, R<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, Python</td>
+<td align="left"><a href="http://www.phil.cmu.edu/tetrad" class="uri">http://www.phil.cmu.edu/tetrad</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="scope" class="section level2">
+<h2>Scope</h2>
+<p>The comparison focuses on <strong>graph representation and
+analysis</strong>: which graph classes each package can represent, which
+structural and causal-graph algorithms it implements, and how it
+interoperates with other tooling.</p>
+<p>Two adjacent areas are intentionally out of scope:</p>
+<ul>
+<li><strong>Causal discovery</strong> (PC, FCI, GES, GFCI, LiNGAM,
+etc.). <code>caugi</code> does not implement discovery algorithms.</li>
+<li><strong>Statistical inference and parameter learning</strong> (CPT
+estimation, likelihood, parameter fitting): also out of scope for
+<code>caugi</code>.</li>
+</ul>
+</div>
+<div id="graph-types-supported" class="section level2">
+<h2>Graph Types Supported</h2>
+<table style="width:100%;">
+<caption>Supported graph types for the packages in this comparison.
+<code>●</code> indicates a dedicated class with type-level invariants;
+<code>◐</code> indicates representability without a dedicated class or
+invariant enforcement; <code>○</code> indicates unsupported graph
+types.</caption>
+<colgroup>
+<col width="7%" />
+<col width="12%" />
+<col width="11%" />
+<col width="10%" />
+<col width="9%" />
+<col width="9%" />
+<col width="13%" />
+<col width="2%" />
+<col width="10%" />
+<col width="12%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Package</th>
+<th align="left">DAG</th>
+<th align="left">CPDAG</th>
+<th align="left">MPDAG</th>
+<th align="left">MAG</th>
+<th align="left">PAG</th>
+<th align="left">ADMG</th>
+<th align="left">SWIG</th>
+<th align="left">UG</th>
+<th align="left">Mixed/general</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>caugi</strong></td>
+<td align="left">●</td>
+<td align="left">●<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a></td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">igraph</td>
+<td align="left">◐<a href="#fn4" class="footnote-ref" id="fnref4"><sup>4</sup></a></td>
+<td align="left">○<a href="#fn5" class="footnote-ref" id="fnref5"><sup>5</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn6" class="footnote-ref" id="fnref6"><sup>6</sup></a></td>
+<td align="left">◐<a href="#fn7" class="footnote-ref" id="fnref7"><sup>7</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">graph</td>
+<td align="left">◐<a href="#fn8" class="footnote-ref" id="fnref8"><sup>8</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn9" class="footnote-ref" id="fnref9"><sup>9</sup></a></td>
+<td align="left">◐<a href="#fn10" class="footnote-ref" id="fnref10"><sup>10</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">gRbase</td>
+<td align="left">◐<a href="#fn11" class="footnote-ref" id="fnref11"><sup>11</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn12" class="footnote-ref" id="fnref12"><sup>12</sup></a></td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pcalg</td>
+<td align="left">◐<a href="#fn13" class="footnote-ref" id="fnref13"><sup>13</sup></a></td>
+<td align="left">◐<a href="#fn14" class="footnote-ref" id="fnref14"><sup>14</sup></a></td>
+<td align="left">◐<a href="#fn15" class="footnote-ref" id="fnref15"><sup>15</sup></a></td>
+<td align="left">◐<a href="#fn16" class="footnote-ref" id="fnref16"><sup>16</sup></a></td>
+<td align="left">◐<a href="#fn17" class="footnote-ref" id="fnref17"><sup>17</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">dagitty</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn18" class="footnote-ref" id="fnref18"><sup>18</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">bnlearn</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn19" class="footnote-ref" id="fnref19"><sup>19</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn20" class="footnote-ref" id="fnref20"><sup>20</sup></a></td>
+<td align="left">◐<a href="#fn21" class="footnote-ref" id="fnref21"><sup>21</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">ggm</td>
+<td align="left">◐<a href="#fn22" class="footnote-ref" id="fnref22"><sup>22</sup></a></td>
+<td align="left">◐<a href="#fn23" class="footnote-ref" id="fnref23"><sup>23</sup></a></td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn24" class="footnote-ref" id="fnref24"><sup>24</sup></a></td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn25" class="footnote-ref" id="fnref25"><sup>25</sup></a></td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn26" class="footnote-ref" id="fnref26"><sup>26</sup></a></td>
+<td align="left">◐<a href="#fn27" class="footnote-ref" id="fnref27"><sup>27</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">MixedGraphs</td>
+<td align="left">◐<a href="#fn28" class="footnote-ref" id="fnref28"><sup>28</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn29" class="footnote-ref" id="fnref29"><sup>29</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">NetworkX</td>
+<td align="left">◐<a href="#fn30" class="footnote-ref" id="fnref30"><sup>30</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn31" class="footnote-ref" id="fnref31"><sup>31</sup></a></td>
+<td align="left">◐<a href="#fn32" class="footnote-ref" id="fnref32"><sup>32</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">pgmpy</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn33" class="footnote-ref" id="fnref33"><sup>33</sup></a></td>
+<td align="left">○<a href="#fn34" class="footnote-ref" id="fnref34"><sup>34</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○<a href="#fn35" class="footnote-ref" id="fnref35"><sup>35</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">Tetrad</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn36" class="footnote-ref" id="fnref36"><sup>36</sup></a></td>
+<td align="left">◐<a href="#fn37" class="footnote-ref" id="fnref37"><sup>37</sup></a></td>
+<td align="left">◐<a href="#fn38" class="footnote-ref" id="fnref38"><sup>38</sup></a></td>
+<td align="left">●<a href="#fn39" class="footnote-ref" id="fnref39"><sup>39</sup></a></td>
+<td align="left">◐<a href="#fn40" class="footnote-ref" id="fnref40"><sup>40</sup></a></td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn41" class="footnote-ref" id="fnref41"><sup>41</sup></a></td>
+<td align="left">◐<a href="#fn42" class="footnote-ref" id="fnref42"><sup>42</sup></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="graph-queries-and-structural-operations" class="section level2">
+<h2>Graph Queries and Structural Operations</h2>
+<table>
+<caption>Overview of available graph queries and structural operations
+in the packages in the comparison.</caption>
+<colgroup>
+<col width="5%" />
+<col width="8%" />
+<col width="10%" />
+<col width="8%" />
+<col width="6%" />
+<col width="7%" />
+<col width="11%" />
+<col width="8%" />
+<col width="5%" />
+<col width="10%" />
+<col width="11%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Package</th>
+<th align="left">Parents/children</th>
+<th align="left">Ancestors/descendants</th>
+<th align="left">d-sep</th>
+<th align="left">m-sep</th>
+<th align="left">Paths</th>
+<th align="left">Acyclicity</th>
+<th align="left">Markov blanket</th>
+<th align="left">Moralization</th>
+<th align="left">Skeleton</th>
+<th align="left">v-structures</th>
+<th align="left">MEC enumeration</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>caugi</strong></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">igraph</td>
+<td align="left">◐<a href="#fn43" class="footnote-ref" id="fnref43"><sup>43</sup></a></td>
+<td align="left">◐<a href="#fn44" class="footnote-ref" id="fnref44"><sup>44</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">graph</td>
+<td align="left">◐<a href="#fn45" class="footnote-ref" id="fnref45"><sup>45</sup></a></td>
+<td align="left">◐<a href="#fn46" class="footnote-ref" id="fnref46"><sup>46</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn47" class="footnote-ref" id="fnref47"><sup>47</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">gRbase</td>
+<td align="left">◐<a href="#fn48" class="footnote-ref" id="fnref48"><sup>48</sup></a></td>
+<td align="left">◐<a href="#fn49" class="footnote-ref" id="fnref49"><sup>49</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pcalg</td>
+<td align="left">◐<a href="#fn50" class="footnote-ref" id="fnref50"><sup>50</sup></a></td>
+<td align="left">◐<a href="#fn51" class="footnote-ref" id="fnref51"><sup>51</sup></a></td>
+<td align="left">◐<a href="#fn52" class="footnote-ref" id="fnref52"><sup>52</sup></a></td>
+<td align="left">◐<a href="#fn53" class="footnote-ref" id="fnref53"><sup>53</sup></a></td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn54" class="footnote-ref" id="fnref54"><sup>54</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn55" class="footnote-ref" id="fnref55"><sup>55</sup></a></td>
+<td align="left">◐<a href="#fn56" class="footnote-ref" id="fnref56"><sup>56</sup></a></td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">dagitty</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn57" class="footnote-ref" id="fnref57"><sup>57</sup></a></td>
+<td align="left">●</td>
+</tr>
+<tr class="odd">
+<td align="left">bnlearn</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn58" class="footnote-ref" id="fnref58"><sup>58</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">ggm</td>
+<td align="left">◐<a href="#fn59" class="footnote-ref" id="fnref59"><sup>59</sup></a></td>
+<td align="left">◐<a href="#fn60" class="footnote-ref" id="fnref60"><sup>60</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn61" class="footnote-ref" id="fnref61"><sup>61</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn62" class="footnote-ref" id="fnref62"><sup>62</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">MixedGraphs</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn63" class="footnote-ref" id="fnref63"><sup>63</sup></a></td>
+<td align="left">◐<a href="#fn64" class="footnote-ref" id="fnref64"><sup>64</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">NetworkX</td>
+<td align="left">◐<a href="#fn65" class="footnote-ref" id="fnref65"><sup>65</sup></a></td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn66" class="footnote-ref" id="fnref66"><sup>66</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn67" class="footnote-ref" id="fnref67"><sup>67</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pgmpy</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn68" class="footnote-ref" id="fnref68"><sup>68</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○<a href="#fn69" class="footnote-ref" id="fnref69"><sup>69</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">Tetrad</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn70" class="footnote-ref" id="fnref70"><sup>70</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn71" class="footnote-ref" id="fnref71"><sup>71</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn72" class="footnote-ref" id="fnref72"><sup>72</sup></a></td>
+<td align="left">◐<a href="#fn73" class="footnote-ref" id="fnref73"><sup>73</sup></a></td>
+<td align="left">●</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="causal-inference-algorithms" class="section level2">
+<h2>Causal-Inference Algorithms</h2>
+<table>
+<caption>Overview of available causal-inference algorithms in the
+packages in the comparison.</caption>
+<colgroup>
+<col width="8%" />
+<col width="15%" />
+<col width="12%" />
+<col width="14%" />
+<col width="9%" />
+<col width="8%" />
+<col width="11%" />
+<col width="18%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Package</th>
+<th align="left">Back-door adj.</th>
+<th align="left">Generalized adj.</th>
+<th align="left">Optimal adj.</th>
+<th align="left">ID algorithm</th>
+<th align="left">Do-calculus</th>
+<th align="left">Counterfactuals</th>
+<th align="left">Interventions/mutilation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>caugi</strong></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn74" class="footnote-ref" id="fnref74"><sup>74</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">igraph</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">graph</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">gRbase</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pcalg</td>
+<td align="left">◐<a href="#fn75" class="footnote-ref" id="fnref75"><sup>75</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn76" class="footnote-ref" id="fnref76"><sup>76</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">dagitty</td>
+<td align="left">◐<a href="#fn77" class="footnote-ref" id="fnref77"><sup>77</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn78" class="footnote-ref" id="fnref78"><sup>78</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">bnlearn</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">ggm</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">MixedGraphs</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn79" class="footnote-ref" id="fnref79"><sup>79</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">NetworkX</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pgmpy</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">Tetrad</td>
+<td align="left">◐<a href="#fn80" class="footnote-ref" id="fnref80"><sup>80</sup></a></td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn81" class="footnote-ref" id="fnref81"><sup>81</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="io-and-interoperability" class="section level2">
+<h2>I/O and Interoperability</h2>
+<table>
+<caption>Comparison of supported graph I/O formats and interoperability
+features.</caption>
+<colgroup>
+<col width="12%" />
+<col width="17%" />
+<col width="7%" />
+<col width="7%" />
+<col width="15%" />
+<col width="38%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Package</th>
+<th align="left">DOT</th>
+<th align="left">Mermaid</th>
+<th align="left">GraphML</th>
+<th align="left">JSON</th>
+<th align="left">Coerce to/from other graph classes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>caugi</strong></td>
+<td align="left">◐<a href="#fn82" class="footnote-ref" id="fnref82"><sup>82</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●<a href="#fn83" class="footnote-ref" id="fnref83"><sup>83</sup></a></td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">igraph</td>
+<td align="left">◐<a href="#fn84" class="footnote-ref" id="fnref84"><sup>84</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn85" class="footnote-ref" id="fnref85"><sup>85</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">graph</td>
+<td align="left">◐<a href="#fn86" class="footnote-ref" id="fnref86"><sup>86</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn87" class="footnote-ref" id="fnref87"><sup>87</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">gRbase</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn88" class="footnote-ref" id="fnref88"><sup>88</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">pcalg</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn89" class="footnote-ref" id="fnref89"><sup>89</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">dagitty</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn90" class="footnote-ref" id="fnref90"><sup>90</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">bnlearn</td>
+<td align="left">◐<a href="#fn91" class="footnote-ref" id="fnref91"><sup>91</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">ggm</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn92" class="footnote-ref" id="fnref92"><sup>92</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">MixedGraphs</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">NetworkX</td>
+<td align="left">◐<a href="#fn93" class="footnote-ref" id="fnref93"><sup>93</sup></a></td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn94" class="footnote-ref" id="fnref94"><sup>94</sup></a></td>
+</tr>
+<tr class="odd">
+<td align="left">pgmpy</td>
+<td align="left">◐<a href="#fn95" class="footnote-ref" id="fnref95"><sup>95</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn96" class="footnote-ref" id="fnref96"><sup>96</sup></a></td>
+</tr>
+<tr class="even">
+<td align="left">Tetrad</td>
+<td align="left">◐<a href="#fn97" class="footnote-ref" id="fnref97"><sup>97</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">○</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="implementation-and-ergonomics" class="section level2">
+<h2>Implementation and Ergonomics</h2>
+<table>
+<caption>Comparison of implementation details and ergonomic features of
+the packages in the comparison.</caption>
+<colgroup>
+<col width="9%" />
+<col width="14%" />
+<col width="18%" />
+<col width="16%" />
+<col width="14%" />
+<col width="16%" />
+<col width="10%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Package</th>
+<th align="left">Backend</th>
+<th align="left">Sparse storage</th>
+<th align="left">Built-in plotting</th>
+<th align="left">Layout algorithms</th>
+<th align="left">Pipeable/fluent API</th>
+<th align="left">Lazy mutation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>caugi</strong></td>
+<td align="left">R + Rust</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">●</td>
+</tr>
+<tr class="even">
+<td align="left">igraph</td>
+<td align="left">C</td>
+<td align="left">◐<a href="#fn98" class="footnote-ref" id="fnref98"><sup>98</sup></a></td>
+<td align="left">●</td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">graph</td>
+<td align="left">R + C</td>
+<td align="left">●<a href="#fn99" class="footnote-ref" id="fnref99"><sup>99</sup></a></td>
+<td align="left">○<a href="#fn100" class="footnote-ref" id="fnref100"><sup>100</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">gRbase</td>
+<td align="left">R + C++</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn101" class="footnote-ref" id="fnref101"><sup>101</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pcalg</td>
+<td align="left">R + C++</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn102" class="footnote-ref" id="fnref102"><sup>102</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">dagitty</td>
+<td align="left">R + JS</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn103" class="footnote-ref" id="fnref103"><sup>103</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">bnlearn</td>
+<td align="left">R + C</td>
+<td align="left">◐<a href="#fn104" class="footnote-ref" id="fnref104"><sup>104</sup></a></td>
+<td align="left">◐<a href="#fn105" class="footnote-ref" id="fnref105"><sup>105</sup></a></td>
+<td align="left">◐<a href="#fn106" class="footnote-ref" id="fnref106"><sup>106</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">ggm</td>
+<td align="left">R</td>
+<td align="left">○</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn107" class="footnote-ref" id="fnref107"><sup>107</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">MixedGraphs</td>
+<td align="left">R + C++</td>
+<td align="left">◐<a href="#fn108" class="footnote-ref" id="fnref108"><sup>108</sup></a></td>
+<td align="left">◐<a href="#fn109" class="footnote-ref" id="fnref109"><sup>109</sup></a></td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn110" class="footnote-ref" id="fnref110"><sup>110</sup></a></td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">NetworkX</td>
+<td align="left">Python</td>
+<td align="left">◐<a href="#fn111" class="footnote-ref" id="fnref111"><sup>111</sup></a></td>
+<td align="left">◐<a href="#fn112" class="footnote-ref" id="fnref112"><sup>112</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="odd">
+<td align="left">pgmpy</td>
+<td align="left">Python (NetworkX)</td>
+<td align="left">○</td>
+<td align="left">◐<a href="#fn113" class="footnote-ref" id="fnref113"><sup>113</sup></a></td>
+<td align="left">◐<a href="#fn114" class="footnote-ref" id="fnref114"><sup>114</sup></a></td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+<tr class="even">
+<td align="left">Tetrad</td>
+<td align="left">Java</td>
+<td align="left">●</td>
+<td align="left">◐<a href="#fn115" class="footnote-ref" id="fnref115"><sup>115</sup></a></td>
+<td align="left">●</td>
+<td align="left">○</td>
+<td align="left">○</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="contributing" class="section level2">
+<h2>Contributing</h2>
+<p>If you find any errors in the comparison above or would like to add
+another package for comparisons, please file an issue or submit a pull
+request with the relevant information.</p>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Bindings for Tetrad exist in <a href="https://github.com/cmu-phil/r-tetrad" class="uri">https://github.com/cmu-phil/r-tetrad</a>, but not in the
+form of a formal R package. The authors instead recommend using the
+Python bindings from R instead.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p><code>caugi</code> has a dedicated <code>CPDAG</code>
+class whose invariants (chordal chain components, an acyclic component
+DAG, Meek closure, and strong arrow protection) are validated at
+construction via <code>class = &quot;CPDAG&quot;</code> (in <code>caugi()</code>,
+<code>as_caugi()</code>, and <code>mutate_caugi()</code>).
+<code>generate_graph(class = &quot;CPDAG&quot;)</code> returns a graph typed
+<code>&quot;CPDAG&quot;</code>, and <code>is_cpdag()</code> also validates the
+structure post-hoc for graphs of other classes.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn3"><p><code>caugi</code> accepts <code>class = &quot;AG&quot;</code>
+(ancestral graph) in the constructor and exports <code>is_mag()</code>
+to validate maximality post-hoc, but there is no dedicated MAG
+class—MAGs are representable as AGs and checked rather than enforced.<a href="#fnref3" class="footnote-back">↩︎</a></p></li>
+<li id="fn4"><p>igraph has no dedicated DAG class. <code>is_dag()</code>
+tests whether a directed graph is acyclic, but the package’s single
+<code>igraph</code> object class does not enforce DAG invariants. A
+directed graph that happens to be acyclic is representable, but the type
+is not distinguished at the object level.<a href="#fnref4" class="footnote-back">↩︎</a></p></li>
+<li id="fn5"><p>igraph has no CPDAG, MPDAG, MAG, PAG, ADMG, or SWIG
+class and no associated type-level operations (confirmed absent from R
+source and NAMESPACE).<a href="#fnref5" class="footnote-back">↩︎</a></p></li>
+<li id="fn6"><p>Undirected graphs are representable via
+<code>is_directed = FALSE</code>
+(e.g. <code>make_empty_graph(directed = FALSE)</code>), but there is no
+dedicated UG class enforcing undirectedness as a type invariant distinct
+from the general <code>igraph</code> object.<a href="#fnref6" class="footnote-back">↩︎</a></p></li>
+<li id="fn7"><p>igraph supports per-edge attributes but has no dedicated
+mixed-edge class with typed semantics. Representing a true mixed graph
+requires manual attribute manipulation with no type enforcement.<a href="#fnref7" class="footnote-back">↩︎</a></p></li>
+<li id="fn8"><p><code>graph</code> has no dedicated DAG class.
+<code>graphNEL</code> and <code>graphAM</code> can hold directed graphs
+(via <code>edgemode = &quot;directed&quot;</code>) that happen to be acyclic, but
+the package enforces no acyclicity invariants and provides no
+DAG-specific construction or validation.<a href="#fnref8" class="footnote-back">↩︎</a></p></li>
+<li id="fn9"><p>No dedicated UG class. Undirected graphs are represented
+by setting <code>edgemode = &quot;undirected&quot;</code> on a general
+<code>graphNEL</code> / <code>graphAM</code> object; the package stores
+reciprocal edges internally but does not expose a named UG class.<a href="#fnref9" class="footnote-back">↩︎</a></p></li>
+<li id="fn10"><p><code>MultiGraph</code> holds a shared node set with
+multiple edge sets, each independently directed or undirected. It does
+not support a single edge that is both directed and bidirected, and is
+not designed around causal mixed-edge semantics (e.g. MAG/PAG/ADMG).<a href="#fnref10" class="footnote-back">↩︎</a></p></li>
+<li id="fn11"><p>gRbase provides a <code>dag()</code> constructor and
+<code>is_dag()</code> type-check, with the underlying representation
+being an igraph object or adjacency matrix. There is no dedicated DAG
+class enforcing acyclicity invariants at the object level.<a href="#fnref11" class="footnote-back">↩︎</a></p></li>
+<li id="fn12"><p>Same reasoning as <code>[^grbase-dag]</code>:
+<code>ug()</code> constructs an undirected graph and
+<code>is_ug()</code> tests for it, but the result is a plain igraph or
+matrix.<a href="#fnref12" class="footnote-back">↩︎</a></p></li>
+<li id="fn13"><p>pcalg produces DAGs (via <code>randomDAG()</code> /
+<code>randDAG()</code> returning <code>graphNEL</code> objects, or the
+<code>ParDAG</code> / <code>GaussParDAG</code> class), and
+<code>isValidGraph(amat, type = &quot;dag&quot;)</code> validates them. The
+dominant user-facing representation is an untyped <code>graphNEL</code>
+rather than a pcalg-owned DAG class.<a href="#fnref13" class="footnote-back">↩︎</a></p></li>
+<li id="fn14"><p><code>dag2cpdag()</code> produces a CPDAG and
+<code>isValidGraph(amat, type = &quot;cpdag&quot;)</code> validates one;
+<code>pcAlgo</code> objects carry a graph with attribute
+<code>&quot;amat.cpdag&quot;</code>. There is no dedicated exported CPDAG class.<a href="#fnref14" class="footnote-back">↩︎</a></p></li>
+<li id="fn15"><p><code>addBgKnowledge()</code> augments a CPDAG with
+background knowledge and re-applies Meek’s rules to produce an MPDAG. As
+with CPDAG, no dedicated exported MPDAG class exists; the object is a
+bare adjacency matrix with convention-level typing only.<a href="#fnref15" class="footnote-back">↩︎</a></p></li>
+<li id="fn16"><p>MAG-type adjacency matrices (0/2/3 coding from
+Richardson &amp; Spirtes 2002) are used throughout pcalg
+(e.g. <code>dsepAM()</code>, <code>backdoor()</code>,
+<code>adjustment(amat.type = &quot;mag&quot;)</code>,
+<code>pcalg2dagitty()</code>), but there is no exported MAG class.<a href="#fnref16" class="footnote-back">↩︎</a></p></li>
+<li id="fn17"><p><code>fciAlgo</code> objects hold a PAG as an adjacency
+matrix in the <code>@amat</code> slot. <code>fci()</code> /
+<code>rfci()</code> / <code>fciPlus()</code> / <code>dag2pag()</code>
+all return <code>fciAlgo</code>. The class is exported but is a
+<em>result</em> container for FCI-family algorithms, not a freely
+constructable PAG class.<a href="#fnref17" class="footnote-back">↩︎</a></p></li>
+<li id="fn18"><p><code>dagitty</code> recognises only
+<code>&quot;dag&quot;</code>, <code>&quot;pdag&quot;</code>, <code>&quot;mag&quot;</code>,
+<code>&quot;pag&quot;</code> via <code>graphType()</code>.
+<code>equivalenceClass()</code> calls <code>dagToCpdag</code> internally
+and is documented as producing a CPDAG, but the result is typed
+<code>&quot;pdag&quot;</code>—no distinct CPDAG class or invariant enforcement.
+MPDAG is likewise representable as <code>&quot;pdag&quot;</code> without
+Meek-completion logic. <code>&quot;ug&quot;</code>, <code>&quot;admg&quot;</code>,
+<code>&quot;swig&quot;</code> are absent from both the R API and the JS engine.<a href="#fnref18" class="footnote-back">↩︎</a></p></li>
+<li id="fn19"><p><code>cpdag()</code> computes the CPDAG of a DAG and
+<code>valid.cpdag()</code> validates structure, but bnlearn uses a
+single generic <code>bn</code> class for all graph types; no dedicated
+CPDAG class exists and CPDAG invariants are not enforced at the object
+level.<a href="#fnref19" class="footnote-back">↩︎</a></p></li>
+<li id="fn20"><p><code>skeleton()</code> produces a fully undirected
+graph and <code>valid.ug()</code> validates whether a <code>bn</code>
+object is completely undirected, but the result is still a plain
+<code>bn</code> object—no dedicated UG class with enforced undirected
+invariants exists.<a href="#fnref20" class="footnote-back">↩︎</a></p></li>
+<li id="fn21"><p>A <code>bn</code> object can hold a mix of directed and
+undirected arcs (representing a PDAG), making mixed graphs implicitly
+representable, but there is no explicit untyped mixed-edge graph class
+distinct from the PDAG interpretation.<a href="#fnref21" class="footnote-back">↩︎</a></p></li>
+<li id="fn22"><p><code>ggm</code> represents DAGs as plain integer
+adjacency matrices (entries 0, 1, 10, 100) built with
+<code>DAG()</code>. There is no S3/S4 class enforcing DAG invariants;
+<code>isAcyclic()</code> must be called separately.<a href="#fnref22" class="footnote-back">↩︎</a></p></li>
+<li id="fn23"><p><code>essentialGraph()</code> converts a DAG to its
+essential graph (= CPDAG), returning an adjacency matrix. There is no
+dedicated CPDAG class; the result is an untagged matrix.<a href="#fnref23" class="footnote-back">↩︎</a></p></li>
+<li id="fn24"><p><code>MAG()</code> derives a maximal ancestral graph
+after marginalisation/conditioning, and <code>isAG()</code> validates
+ancestral-graph conditions. The representation is still an untagged
+adjacency matrix.<a href="#fnref24" class="footnote-back">↩︎</a></p></li>
+<li id="fn25"><p><code>isADMG()</code> checks whether an adjacency
+matrix satisfies ADMG conditions. No dedicated ADMG constructor exists;
+the matrix encoding is the same general integer format used for all
+mixed graphs.<a href="#fnref25" class="footnote-back">↩︎</a></p></li>
+<li id="fn26"><p>Undirected graphs are built with <code>UG()</code>,
+which produces an adjacency matrix with edge-type value 10. No distinct
+UG class enforces undirected invariants.<a href="#fnref26" class="footnote-back">↩︎</a></p></li>
+<li id="fn27"><p><code>makeMG()</code> combines directed, undirected,
+and bidirected components into one adjacency matrix;
+<code>grMAT()</code> converts graphNEL/igraph inputs to this format. The
+representation is a general integer adjacency matrix with no commitment
+to a specific typed mixed-graph semantics.<a href="#fnref27" class="footnote-back">↩︎</a></p></li>
+<li id="fn28"><p><code>MixedGraphs</code> has no dedicated DAG class.
+<code>is_DAG()</code> checks that a <code>mixedgraph</code> carries only
+directed edges and is acyclic, but the constructor does not enforce DAG
+invariants. The <code>mixedgraph</code> object is an untyped
+container.<a href="#fnref28" class="footnote-back">↩︎</a></p></li>
+<li id="fn29"><p><code>is_ADMG()</code> tests whether a
+<code>mixedgraph</code> contains only directed and bidirected edges and
+is acyclic, but there is no dedicated ADMG class. ADMG-typed objects
+from the companion <code>ADMGs</code> package can be converted to/from
+<code>mixedgraph</code> via <code>convert()</code>, but
+<code>MixedGraphs</code> itself does not expose an ADMG class.<a href="#fnref29" class="footnote-back">↩︎</a></p></li>
+<li id="fn30"><p>NetworkX’s <code>DiGraph</code> class stores directed
+edges and supports DAG-related algorithms
+(<code>is_directed_acyclic_graph</code>, <code>topological_sort</code>,
+<code>ancestors</code>, <code>descendants</code>), but the class itself
+does not enforce acyclicity as an invariant—a <code>DiGraph</code> can
+hold cycles. There is no dedicated <code>DAG</code> subclass.<a href="#fnref30" class="footnote-back">↩︎</a></p></li>
+<li id="fn31"><p>NetworkX’s <code>Graph</code> class stores undirected
+edges, making it suitable for UGs, but it carries no type-level semantic
+enforcement (no bidirected edges, no directed edges, etc.).<a href="#fnref31" class="footnote-back">↩︎</a></p></li>
+<li id="fn32"><p>NetworkX has no mixed-edge graph class. Its four
+classes (<code>Graph</code>, <code>DiGraph</code>,
+<code>MultiGraph</code>, <code>MultiDiGraph</code>) are all
+homogeneous-edge. The <code>pywhy-graphs</code> extension provides
+mixed-graph types but is a separate package.<a href="#fnref32" class="footnote-back">↩︎</a></p></li>
+<li id="fn33"><p><code>pgmpy</code> has a single <code>PDAG</code> class
+(<code>pgmpy.base.PDAG</code>) documented as “also known as CPDAG”. It
+supports CPDAG construction from a DAG via <code>DAG.to_pdag()</code>
+(Chickering 2002) and <code>to_cpdag()</code> /
+<code>apply_meeks_rules()</code> methods. There is no separate dedicated
+CPDAG class, and PDAG does not enforce the invariant that the graph
+represents a complete Markov equivalence class.<a href="#fnref33" class="footnote-back">↩︎</a></p></li>
+<li id="fn34"><p>No dedicated MPDAG class.
+<code>PDAG.apply_meeks_rules(apply_r4 = True)</code> applies all four
+Meek rules and could produce an MPDAG, but there is no type-specific
+MPDAG class or MPDAG-specific construction pathway.<a href="#fnref34" class="footnote-back">↩︎</a></p></li>
+<li id="fn35"><p><code>AncestralBase</code> stores mixed-edge graphs
+with arbitrary marks and is the parent of <code>MAG</code>. It is an
+internal base class, not a user-facing untyped mixed-edge graph class.
+Coverage of several typed mixed graphs (ADMG, MAG, PDAG) does not by
+itself satisfy this column.<a href="#fnref35" class="footnote-back">↩︎</a></p></li>
+<li id="fn36"><p>Tetrad has no dedicated <code>Cpdag</code> class.
+CPDAGs are represented as <code>EdgeListGraph</code> objects containing
+directed and undirected edges. The library validates CPDAG status at
+runtime via <code>Paths.isLegalCpdag()</code> and produces CPDAGs
+through <code>GraphTransforms.dagToCpdag()</code> /
+<code>GraphSearchUtils.basicCpdag()</code>. The CPDAG concept is
+operationally first-class but not a distinct enforced type.<a href="#fnref36" class="footnote-back">↩︎</a></p></li>
+<li id="fn37"><p>No dedicated <code>Mpdag</code> class. Tetrad validates
+MPAGs via <code>Paths.isLegalMpag()</code>, and
+<code>MeekRules.orientImplied(graph)</code> with a populated
+<code>Knowledge</code> object applies Meek rules under background
+constraints, but there is no single <code>dagToMpdag</code> factory.<a href="#fnref37" class="footnote-back">↩︎</a></p></li>
+<li id="fn38"><p>No dedicated <code>Mag</code> class. MAGs are
+represented as generic <code>EdgeListGraph</code> objects and validated
+post-hoc via <code>Paths.isLegalMag()</code>. Constructed through
+<code>GraphTransforms.dagToMag(dag)</code> and converted to PAGs via
+<code>GraphTransforms.magToPag()</code>.<a href="#fnref38" class="footnote-back">↩︎</a></p></li>
+<li id="fn39"><p>No dedicated <code>Pag</code> class. PAGs are
+<code>EdgeListGraph</code> instances with circle, tail, and arrowhead
+endpoints. Validated via <code>Paths.isLegalPag()</code>. Produced by
+<code>GraphTransforms.dagToPag()</code> and
+<code>GraphTransforms.magToPag()</code>.<a href="#fnref39" class="footnote-back">↩︎</a></p></li>
+<li id="fn40"><p><code>SemGraph</code> (in
+<code>edu.cmu.tetrad.graph</code>) enforces directed + bidirected edges
+only and automatically manages error nodes for each endogenous variable,
+implementing ADMG-like semantics. However, it is scoped to
+structural-equation-model graphs (with explicit error nodes) rather than
+a general-purpose ADMG class.<a href="#fnref40" class="footnote-back">↩︎</a></p></li>
+<li id="fn41"><p>No dedicated undirected-graph class. Undirected edges
+can be added to <code>EdgeListGraph</code> via
+<code>addUndirectedEdge()</code>, and
+<code>GraphUtils.undirectedGraph(g)</code> converts all edges to
+undirected. There is no enforced <code>UG</code> type with
+invariant-checking.<a href="#fnref41" class="footnote-back">↩︎</a></p></li>
+<li id="fn42"><p><code>EdgeListGraph</code> is the universal mixed-edge
+container and accepts all five endpoint combinations (directed,
+undirected, bidirected, partially-oriented, nondirected). It does not
+commit to any single graph semantics, but it is not branded as a
+distinct “mixed/general” class—it is simply the default implementation
+of the <code>Graph</code> interface.<a href="#fnref42" class="footnote-back">↩︎</a></p></li>
+<li id="fn43"><p>Parents and children are obtainable via
+<code>neighbors(graph, v, mode = &quot;in&quot; / &quot;out&quot;)</code>, but there are no
+dedicated <code>parents()</code> / <code>children()</code> exported
+functions.<a href="#fnref43" class="footnote-back">↩︎</a></p></li>
+<li id="fn44"><p>Ancestors and descendants are obtainable via
+<code>subcomponent(graph, v, mode = &quot;in&quot; / &quot;out&quot;)</code>, but there are
+no dedicated <code>ancestors()</code> / <code>descendants()</code>
+exported functions.<a href="#fnref44" class="footnote-back">↩︎</a></p></li>
+<li id="fn45"><p>No dedicated <code>parents()</code> or
+<code>children()</code> functions. <code>inEdges()</code> returns the
+set of in-neighbours (functional equivalent of parents on a directed
+graph); <code>edges()</code> returns out-neighbours (functional
+equivalent of children). Both are exported S4 generics.<a href="#fnref45" class="footnote-back">↩︎</a></p></li>
+<li id="fn46"><p><code>acc()</code> returns all nodes reachable from a
+given node on a directed graph, equivalent to the descendant set. There
+is no <code>ancestors()</code> equivalent exported by the package.<a href="#fnref46" class="footnote-back">↩︎</a></p></li>
+<li id="fn47"><p><code>DFS()</code> (exported) provides depth-first
+graph traversal; <code>pathWeights()</code> computes weights along a
+user-specified path. No all-paths enumeration, shortest-path, or
+directed-path-existence function is provided; those require the
+companion <code>RBGL</code> package.<a href="#fnref47" class="footnote-back">↩︎</a></p></li>
+<li id="fn48"><p><code>parents()</code> and <code>children()</code> are
+exported (<code>R/graph-querygraph.R</code>). There is no corresponding
+<code>descendants()</code> function in the exported API;
+<code>ancestors()</code> / <code>ancestralSet()</code> /
+<code>ancestralGraph()</code> cover the ancestor side but the symmetric
+descendent query is absent.<a href="#fnref48" class="footnote-back">↩︎</a></p></li>
+<li id="fn49"><p><code>ancestors()</code>, <code>ancestralSet()</code>,
+and <code>ancestralGraph()</code> are exported. A dedicated
+<code>descendants()</code> is absent from the exported API.<a href="#fnref49" class="footnote-back">↩︎</a></p></li>
+<li id="fn50"><p><code>searchAM(amat, x, type = &quot;pa&quot; / &quot;ch&quot;)</code>
+returns parents and children for DAG, CPDAG, MAG, and PAG adjacency
+matrices. There is no standalone <code>parents()</code> or
+<code>children()</code> function; retrieval goes through the general
+<code>searchAM()</code> dispatcher.<a href="#fnref50" class="footnote-back">↩︎</a></p></li>
+<li id="fn51"><p><code>searchAM(amat, x, type = &quot;an&quot; / &quot;de&quot;)</code>
+returns ancestors and descendants for DAG/CPDAG/MAG/PAG.
+<code>possAn()</code> and <code>possDe()</code> /
+<code>possibleDe()</code> return possible ancestors/descendants in PAGs.
+All operate on raw adjacency matrices via <code>searchAM()</code>.<a href="#fnref51" class="footnote-back">↩︎</a></p></li>
+<li id="fn52"><p><code>dsep(a, b, S, g)</code> tests d-separation in a
+DAG (using a <code>graphNEL</code> object and moralization; Lauritzen
+2004). <code>dsepTest()</code> wraps it for use as a CI oracle. There is
+no exported d-separation function for CPDAGs or PDAGs directly;
+<code>dsep()</code> is DAG-only.<a href="#fnref52" class="footnote-back">↩︎</a></p></li>
+<li id="fn53"><p><code>dsepAM(X, Y, S, amat)</code> tests m-separation
+on MAG adjacency matrices. <code>dsepAMTest()</code> wraps it for
+algorithmic use. Coverage is MAG-only; there is no exported m-separation
+function for PAGs in pcalg’s own API.<a href="#fnref53" class="footnote-back">↩︎</a></p></li>
+<li id="fn54"><p><code>isValidGraph(amat, type = &quot;dag&quot;)</code> checks
+for directed cycles as part of DAG validation. There is no standalone
+<code>is_acyclic()</code> function; acyclicity is only surfaced through
+<code>isValidGraph()</code>.<a href="#fnref54" class="footnote-back">↩︎</a></p></li>
+<li id="fn55"><p>The <code>skeleton()</code> function <em>estimates</em>
+a skeleton from data using conditional independence tests (it is a
+causal discovery function). There is no separate exported function to
+extract or query the skeleton of an already-known graph.<a href="#fnref55" class="footnote-back">↩︎</a></p></li>
+<li id="fn56"><p><code>udag2pdag()</code> and <code>dag2cpdag()</code>
+identify v-structures as part of the CPDAG-completion process, but there
+is no standalone exported function to enumerate or check v-structures of
+a given graph.<a href="#fnref56" class="footnote-back">↩︎</a></p></li>
+<li id="fn57"><p>No function enumerates v-structures as a set.
+<code>isCollider(x, u, v, w)</code> tests a single triple, but there is
+no exported <code>vStructures()</code> or equivalent. Skeleton
+(undirected version of the graph) is also absent as a dedicated
+function.<a href="#fnref57" class="footnote-back">↩︎</a></p></li>
+<li id="fn58"><p><code>dsep()</code> tests d-separation on
+<code>bn</code> objects. When the input contains undirected arcs
+(PDAG/CPDAG), the function calls <code>cpdag.extension()</code> to
+produce a single consistent DAG extension first; d-separation is then
+tested on that DAG rather than natively on the PDAG.<a href="#fnref58" class="footnote-back">↩︎</a></p></li>
+<li id="fn59"><p><code>pa()</code> returns parents and <code>ch()</code>
+returns children of a node set in a DAG. <code>bd()</code> returns the
+boundary (neighbours + parents). These operate on raw adjacency matrices
+and are undocumented for MAG/mixed-graph inputs; no
+<code>descendants()</code> or <code>spouses()</code> analogue is
+exported.<a href="#fnref59" class="footnote-back">↩︎</a></p></li>
+<li id="fn60"><p><code>ancGraph()</code> / <code>anGraph()</code>
+compute the transitive closure (ancestor relation) of a DAG as a Boolean
+adjacency matrix rather than returning a node list. No
+<code>descendants()</code> function is exported.<a href="#fnref60" class="footnote-back">↩︎</a></p></li>
+<li id="fn61"><p><code>findPath()</code> finds a single path between two
+nodes in an undirected graph (used internally by
+<code>fundCycles()</code>); it is not intended for direct user calls and
+does not enumerate all paths.<a href="#fnref61" class="footnote-back">↩︎</a></p></li>
+<li id="fn62"><p><code>essentialGraph()</code> returns the CPDAG
+(encoding the full MEC) but does not enumerate the Markov-equivalent
+DAGs. <code>MarkEqRcg()</code> / <code>MarkEqMag()</code> test pairwise
+Markov equivalence; <code>RepMarDAG()</code> / <code>RepMarUG()</code> /
+<code>RepMarBG()</code> find a single representative.<a href="#fnref62" class="footnote-back">↩︎</a></p></li>
+<li id="fn63"><p><code>is_cyclic()</code> is exported and checks
+directed cycles, and <code>topologicalOrder()</code> /
+<code>isTopological()</code> implicitly validate acyclicity, but
+<code>is_cyclic()</code> documentation notes it is “Not
+tested”—<code>◐</code> reflects this caveat.<a href="#fnref63" class="footnote-back">↩︎</a></p></li>
+<li id="fn64"><p><code>mb()</code> finds the “Markov blanket for a
+vertex in an ancestral set” but requires the user to supply an explicit
+ancestral set <code>A</code> and the vertex must be childless in that
+set—a constrained helper rather than a standard graph-wide
+Markov-blanket function.<a href="#fnref64" class="footnote-back">↩︎</a></p></li>
+<li id="fn65"><p><code>DiGraph.predecessors()</code> and
+<code>DiGraph.successors()</code> return parent/child iterators. There
+is no dedicated <code>parents()</code> / <code>children()</code> API for
+a named causal DAG.<a href="#fnref65" class="footnote-back">↩︎</a></p></li>
+<li id="fn66"><p><code>networkx.algorithms.d_separation</code> provides
+<code>is_d_separator</code>, <code>is_minimal_d_separator</code>, and
+<code>find_minimal_d_separator</code>. All three require a DAG and raise
+<code>NetworkXError</code> on cyclic or undirected graphs. They do not
+support PDAGs, MAGs, or any other mixed-edge graph type.<a href="#fnref66" class="footnote-back">↩︎</a></p></li>
+<li id="fn67"><p>NetworkX has no dedicated <code>skeleton()</code>
+function. The moral graph (<code>nx.moral_graph</code>) is available,
+but skeleton extraction (dropping directionality without moralization)
+is not an exported function.<a href="#fnref67" class="footnote-back">↩︎</a></p></li>
+<li id="fn68"><p><code>DAG.get_ancestors()</code> is implemented. There
+is no <code>DAG.get_descendants()</code> method;
+<code>nx.descendants()</code> from NetworkX can be called on the
+underlying <code>nx.DiGraph</code> directly, but it is not part of
+pgmpy’s exported API. <code>ADMG</code> does provide both
+<code>get_ancestors()</code> and <code>get_descendants()</code>.<a href="#fnref68" class="footnote-back">↩︎</a></p></li>
+<li id="fn69"><p>No <code>skeleton()</code> method exists in any pgmpy
+graph class. The undirected skeleton is accessible via the inherited
+<code>nx.DiGraph.to_undirected()</code>, but this is not a pgmpy-level
+exported function.<a href="#fnref69" class="footnote-back">↩︎</a></p></li>
+<li id="fn70"><p><code>Paths.isMSeparatedFrom(x, y, z, isPag)</code>
+implements d-/m-separation. The simpler overload’s Javadoc says “DAG
+only”, yet the <code>isPag</code> parameter explicitly switches PAG
+semantics. Per-graph-type documentation is inconsistent; users access
+d-separation as <code>isMSeparatedFrom(..., false)</code>. The back-door
+helper <code>Paths.isSatisfyBackDoorCriterion()</code> constructs a
+<code>Dag</code> internally and throws if input is not a DAG.<a href="#fnref70" class="footnote-back">↩︎</a></p></li>
+<li id="fn71"><p>There is no <code>isAcyclic()</code> method. Callers
+use <code>!graph.paths().existsDirectedCycle()</code> or
+<code>Paths.isLegalDag()</code> / <code>GraphUtils.isDag()</code>. Fully
+supported but requires negation of a cycle-detection predicate.<a href="#fnref71" class="footnote-back">↩︎</a></p></li>
+<li id="fn72"><p>No dedicated <code>skeleton()</code> method.
+<code>GraphUtils.undirectedGraph(g)</code> converts all edges to
+undirected (producing the skeleton graph object), but it is a
+workaround.<a href="#fnref72" class="footnote-back">↩︎</a></p></li>
+<li id="fn73"><p><code>GraphUtils.listColliderTriples(graph)</code>
+returns all definite collider triples. However,
+<code>EdgeListGraph.isDefCollider()</code> checks arrowhead endpoints
+without testing non-adjacency of the outer nodes, so the method returns
+both shielded and unshielded colliders rather than v-structures
+(unshielded colliders) exclusively.<a href="#fnref73" class="footnote-back">↩︎</a></p></li>
+<li id="fn74"><p><code>adjustment_set(cg, X, Y, type = &quot;optimal&quot;)</code>
+returns the O-set of Henckel/Perković/Maathuis (2019), but only for
+DAGs—the underlying Rust implementation errors on non-DAG graph classes.
+There is no O-set support for CPDAGs, MPDAGs, MAGs, or PAGs.<a href="#fnref74" class="footnote-back">↩︎</a></p></li>
+<li id="fn75"><p><code>backdoor(amat, x, y, type)</code> implements the
+Generalized Backdoor Criterion (GBC) of Maathuis &amp; Colombo (2015),
+which subsumes Pearl’s classical back-door criterion. For DAGs the GBC
+reduces to Pearl’s back-door, so back-door is available as a special
+case, but the function does not specifically enforce or name the
+classical back-door separately. Generalized adjustment is
+<code>adjustment(amat, amat.type, x, y, set.type)</code> (full GAC,
+Perkovic et al. 2015/2018), and optimal is
+<code>optAdjSet(graphEst, x.pos, y.pos)</code>
+(Henckel/Perkovic/Maathuis 2019, DAG/CPDAG/PDAG only).<a href="#fnref75" class="footnote-back">↩︎</a></p></li>
+<li id="fn76"><p><code>rmvnorm.ivent(n, object, target, target.value)</code>
+simulates from an interventional distribution of a
+<code>GaussParDAG</code> by fixing target nodes — implements the
+do-operator semantics within the simulation framework but does not
+mutilate the graph object itself. There is no exported
+<code>mutilate()</code> or <code>do()</code> helper that returns a
+modified graph with incoming edges removed from intervention nodes.<a href="#fnref76" class="footnote-back">↩︎</a></p></li>
+<li id="fn77"><p><code>adjustmentSets(effect = &quot;total&quot;)</code> and
+<code>isAdjustmentSet()</code> both invoke
+<code>GraphTransformer.backDoorGraph()</code> in the JS engine—Pearl’s
+back-door graph construction, not the generalized Perkovic criterion.
+The R documentation cites Perkovic et al. (2015), but the JS
+implementation (<code>listMsasTotalEffect</code> in
+<code>jslib/graph/GraphAnalyzer.js</code>) applies the back-door graph
+uniformly across dag/pdag/mag/pag. Generalized adjustment scores
+<code>○</code> because no separate generalized-adjustment code path
+exists. <code>type = &quot;canonical&quot;</code> returns the ancestor-based
+canonical set but is not an optimality criterion in the
+Rotnitzky/Henckel sense.<a href="#fnref77" class="footnote-back">↩︎</a></p></li>
+<li id="fn78"><p><code>backDoorGraph(x)</code> removes the first
+directed edge on every proper causal path (with PAG handling via
+<code>pagToPdag</code> conversion)—the back-door-graph helper, not a
+general <code>do()</code>-style mutilation that removes all incoming
+edges to an arbitrary intervention set. No <code>mutilate()</code> or
+<code>do()</code> function is exported.<a href="#fnref78" class="footnote-back">↩︎</a></p></li>
+<li id="fn79"><p><code>mutilate()</code> removes edges adjacent to a
+specified vertex set and supports a <code>dir = -1</code> option that
+removes only incoming edges. It can mechanically produce the mutilated
+graph required by <code>do()</code>, but the function is documented as a
+general edge-deletion utility with no causal semantics, no treatment of
+bidirected edges in the do-calculus sense, and no convenience wrapper
+that enforces “remove all incoming edges to the intervention set.”<a href="#fnref79" class="footnote-back">↩︎</a></p></li>
+<li id="fn80"><p><code>Paths.isSatisfyBackDoorCriterion(graph, x, y, z)</code>
+implements Pearl’s back-door criterion check, but the implementation
+constructs <code>new Dag(graph)</code> internally and throws if the
+input is not a DAG. Back-door adjustment <em>sets</em> are not
+separately enumerated; the generalized
+<code>RecursiveAdjustment.adjustmentSets()</code> subsumes the back-door
+case for DAGs.<a href="#fnref80" class="footnote-back">↩︎</a></p></li>
+<li id="fn81"><p><code>OSet.oSetDag(graph, X, Y)</code> and
+<code>OSet.oSetCpdag(graph, X, Y, maxPathLength)</code> implement the
+Henckel–Perković–Maathuis O-set for DAGs and (amenable) CPDAGs
+respectively. The <code>Ida</code> and <code>PdagPagIda</code> classes
+wrap this as <code>IDA_TYPE.OPTIMAL</code>. Coverage is restricted to
+DAG/CPDAG; O-sets for MAGs/PAGs are not implemented.<a href="#fnref81" class="footnote-back">↩︎</a></p></li>
+<li id="fn82"><p><code>to_dot()</code> / <code>write_dot()</code> write
+Graphviz DOT format, but caugi has no DOT reader—round-trip via DOT is
+not supported.<a href="#fnref82" class="footnote-back">↩︎</a></p></li>
+<li id="fn83"><p><code>caugi_serialize()</code> /
+<code>caugi_deserialize()</code> (and <code>read_caugi()</code> /
+<code>write_caugi()</code>) read and write caugi’s own JSON-based
+serialization format (Rust-side: <code>src/rust/src/lib.rs</code>). It
+is not a standardized cross-package JSON schema.<a href="#fnref83" class="footnote-back">↩︎</a></p></li>
+<li id="fn84"><p>DOT (Graphviz) format is supported for writing only
+(<code>write_graph(format = &quot;dot&quot;)</code>). Reading DOT format is not
+supported. <code>read_graph()</code> accepts: edgelist, pajek, ncol,
+lgl, graphml, dimacs, graphdb, gml, dl.<a href="#fnref84" class="footnote-back">↩︎</a></p></li>
+<li id="fn85"><p>igraph provides explicit coercion to/from
+<code>graphNEL</code> objects from the Bioconductor <code>graph</code>
+package via <code>as_graphnel()</code> and
+<code>graph_from_graphnel()</code>. No coercion helpers exist for
+dagitty, bnlearn, pcalg, or other causal R package object classes.<a href="#fnref85" class="footnote-back">↩︎</a></p></li>
+<li id="fn86"><p>Write only. <code>toDotWithRI()</code> and
+<code>toDotR()</code> serialise <code>graphNEL</code> objects to DOT
+(Graphviz) format. No DOT reader is provided in the <code>graph</code>
+package.<a href="#fnref86" class="footnote-back">↩︎</a></p></li>
+<li id="fn87"><p>Internal coercions are provided:
+<code>as(graphNEL, &quot;graphAM&quot;)</code>,
+<code>as(graphAM, &quot;graphNEL&quot;)</code>,
+<code>as(graphBAM, &quot;graphNEL&quot;)</code>,
+<code>as(matrix, &quot;graphNEL&quot;)</code>, <code>as(matrix, &quot;graphAM&quot;)</code>,
+<code>graph2SparseM()</code> / <code>sparseM2Graph()</code> (requiring
+optional <code>SparseM</code>). No coercions to or from
+<code>igraph</code>, <code>dagitty</code>, or <code>bnlearn</code>
+objects are exported by <code>graph</code> itself.<a href="#fnref87" class="footnote-back">↩︎</a></p></li>
+<li id="fn88"><p>gRbase provides <code>as()</code> S4 coercion methods
+that convert among igraph, graphNEL (Bioconductor <code>graph</code>),
+dense adjacency matrix, and sparse <code>dgCMatrix</code>
+representations. There are no explicit coercion helpers for other
+<em>causal-graph</em> packages (dagitty, bnlearn, pcalg).<a href="#fnref88" class="footnote-back">↩︎</a></p></li>
+<li id="fn89"><p><code>pcAlgo</code> and <code>fciAlgo</code> objects
+can be coerced to <code>graphAM</code> / <code>graphNEL</code> (from
+<code>graph</code>) via S4 coercion methods. The package wraps
+<code>graphNEL</code> as its primary DAG container, and
+<code>iplotPC()</code> converts to <code>igraph</code> for plotting.
+Incoming coercion (from igraph, bnlearn, dagitty, etc. into pcalg
+objects) is not provided.<a href="#fnref89" class="footnote-back">↩︎</a></p></li>
+<li id="fn90"><p><code>convert(x, to = &quot;igraph&quot;)</code> and
+<code>convert(x, to = &quot;causaleffect&quot;)</code> produce igraph objects
+(one-way: dagitty → igraph only). <code>as.dagitty.bn()</code> converts
+bnlearn <code>bn</code> objects to dagitty (one-way the other
+direction). <code>lavaanToGraph()</code> converts lavaan models to
+dagitty. No coercion to/from <code>graphNEL</code>, <code>pcalg</code>,
+or other classes.<a href="#fnref90" class="footnote-back">↩︎</a></p></li>
+<li id="fn91"><p><code>write.dot()</code> exports the network structure
+to Graphviz DOT format, but there is no corresponding
+<code>read.dot()</code>—DOT support is write-only.<a href="#fnref91" class="footnote-back">↩︎</a></p></li>
+<li id="fn92"><p><code>grMAT()</code> converts graphNEL (from
+<code>graph</code>) and igraph objects <em>into</em> ggm adjacency
+matrices. <code>plotGraph()</code> also accepts graphNEL/igraph as
+input. There is no function to export a ggm adjacency matrix back to a
+graphNEL or igraph object; coercion is one-directional (into ggm’s
+format).<a href="#fnref92" class="footnote-back">↩︎</a></p></li>
+<li id="fn93"><p>DOT format read (<code>read_dot</code>) and write
+(<code>write_dot</code>) are available via
+<code>networkx.drawing.nx_pydot</code>, but <code>pydot</code> is an
+optional external dependency that must be installed separately. A
+pending deprecation warning has also been filed for
+<code>nx_pydot</code> (issue #5723).<a href="#fnref93" class="footnote-back">↩︎</a></p></li>
+<li id="fn94"><p>NetworkX provides explicit conversion helpers to/from
+NumPy arrays, SciPy sparse arrays, and Pandas DataFrames. Conversion
+to/from other <em>graph</em> objects (igraph, graph-tool) is handled by
+those packages’ own <code>from_networkx()</code> /
+<code>to_networkx()</code> methods, not by NetworkX itself.<a href="#fnref94" class="footnote-back">↩︎</a></p></li>
+<li id="fn95"><p><code>DAG.to_graphviz()</code> returns a
+<code>pygraphviz.AGraph</code> from which DOT text can be obtained via
+<code>.to_string()</code>. There is no direct <code>to_dot()</code> /
+<code>from_dot()</code> API; reading DOT is not supported through
+pgmpy’s own API.<a href="#fnref95" class="footnote-back">↩︎</a></p></li>
+<li id="fn96"><p>pgmpy graph classes (<code>DAG</code>,
+<code>PDAG</code>, <code>ADMG</code>) inherit from
+<code>networkx.DiGraph</code>/<code>networkx.MultiDiGraph</code>, so
+they are directly usable as NetworkX objects. There are no explicit
+coercion helpers to or from other graph-package objects (igraph, R
+dagitty objects, bnlearn objects).<a href="#fnref96" class="footnote-back">↩︎</a></p></li>
+<li id="fn97"><p><code>GraphSaveLoadUtils.graphToDot(graph)</code>
+writes Graphviz DOT format (string and file variants). There is no DOT
+reader, so round-trip is not supported. Write-only.<a href="#fnref97" class="footnote-back">↩︎</a></p></li>
+<li id="fn98"><p>The C igraph library uses adjacency-list storage
+internally. On the R side,
+<code>as_adjacency_matrix(sparse = TRUE)</code> and
+<code>graph_from_adjacency_matrix()</code> accept/return sparse
+<code>Matrix</code> objects (<code>dgCMatrix</code>), but the igraph
+object itself is an opaque external pointer backed by the C library’s
+adjacency-list representation, not an R-level sparse matrix.<a href="#fnref98" class="footnote-back">↩︎</a></p></li>
+<li id="fn99"><p><code>graphNEL</code> uses an adjacency-list
+representation (sparse by nature). <code>graphBAM</code> (experimental)
+stores adjacency as a compact bit-array. <code>graph2SparseM()</code> /
+<code>sparseM2Graph()</code> convert to/from <code>SparseM</code> sparse
+matrices when that package is installed.<a href="#fnref99" class="footnote-back">↩︎</a></p></li>
+<li id="fn100"><p>No built-in plotting. DOT serialisation helpers
+(<code>toDotWithRI</code>, <code>toDotR</code>) are provided, but actual
+rendering requires the separate <code>Rgraphviz</code> package. No
+layout algorithms are implemented in <code>graph</code> itself.<a href="#fnref100" class="footnote-back">↩︎</a></p></li>
+<li id="fn101"><p>gRbase exports <code>iplot()</code> /
+<code>graph-iplot</code>, a thin wrapper around igraph’s
+<code>plot.igraph()</code>. There are no built-in layout algorithms:
+layout selection is delegated entirely to igraph.<a href="#fnref101" class="footnote-back">↩︎</a></p></li>
+<li id="fn102"><p><code>pcAlgo</code> and <code>fciAlgo</code> objects
+have <code>plot()</code> S4 methods that delegate to
+<code>Rgraphviz</code>. <code>iplotPC()</code> delegates to
+<code>igraph</code>’s plot. <code>plotSG()</code> also requires
+<code>Rgraphviz</code>. There are no native layout algorithms in pcalg
+itself.<a href="#fnref102" class="footnote-back">↩︎</a></p></li>
+<li id="fn103"><p><code>graphLayout(x, method = &quot;spring&quot;)</code>
+implements a single spring/force-directed layout algorithm. The
+documentation explicitly states
+<code>&quot;currently, only &#39;spring&#39; is supported&quot;</code>.<a href="#fnref103" class="footnote-back">↩︎</a></p></li>
+<li id="fn104"><p>The <code>bn</code> class stores arcs as a 2-column
+character matrix (<code>$arcs</code>) plus per-node children/parents
+lists in <code>$nodes</code>. The exported <code>alst()</code> function
+exposes an adjacency-list view. This is effectively sparse but is not a
+formal CSR/CSC or <code>Matrix</code>-class sparse type.<a href="#fnref104" class="footnote-back">↩︎</a></p></li>
+<li id="fn105"><p>A rudimentary <code>plot.bn()</code> S3 method draws
+nodes in a circle with no external dependencies, but the package
+documentation describes it as “a last resort for when Rgraphviz is not
+available.” The full-featured <code>graphviz.plot()</code> requires the
+Bioconductor <code>Rgraphviz</code> package.<a href="#fnref105" class="footnote-back">↩︎</a></p></li>
+<li id="fn106"><p>All graph layout computation is delegated to Graphviz
+via the <code>Rgraphviz</code> package (algorithms: dot, neato, twopi,
+circo, fdp); bnlearn implements no native layout algorithms.<a href="#fnref106" class="footnote-back">↩︎</a></p></li>
+<li id="fn107"><p><code>plotGraph()</code> and <code>drawGraph()</code>
+delegate layout to igraph (default <code>layout.auto</code>), so any
+igraph layout function can be passed via the <code>layout</code>
+argument. The layouts are not implemented natively in ggm.<a href="#fnref107" class="footnote-back">↩︎</a></p></li>
+<li id="fn108"><p>Edge data can be stored in adjacency-list format
+(<code>adjList</code> class), which is a sparse representation. However,
+the package also supports dense adjacency matrices
+(<code>adjMatrix</code> class) and does not commit to a single internal
+format. No CSR/CSC or other documented sparse-matrix format is
+enforced.<a href="#fnref108" class="footnote-back">↩︎</a></p></li>
+<li id="fn109"><p><code>plot.mixedgraph()</code> is an S3 method but it
+delegates entirely to the <code>pcalg</code> / <code>Rgraphviz</code>
+stack by converting the graph to a <code>fciAlgo</code> object. Layout
+is determined by Rgraphviz; no layout algorithms are implemented within
+MixedGraphs. The function is listed under <code>Suggests</code>
+(<code>pcalg</code>, <code>Rgraphviz</code>), so plotting is unavailable
+without those packages.<a href="#fnref109" class="footnote-back">↩︎</a></p></li>
+<li id="fn110"><p>The package exports a <code>%G%</code> infix operator
+that automatically converts a <code>mixedgraph</code> into the format
+expected by the right-hand-side function (from another package),
+enabling cross-package chaining. This is a narrow inter-package bridge
+operator rather than a full tidyverse-style verb chain that takes and
+returns <code>mixedgraph</code> objects.<a href="#fnref110" class="footnote-back">↩︎</a></p></li>
+<li id="fn111"><p>NetworkX stores graphs internally as a
+dict-of-dicts-of-dicts (adjacency dictionary), which is
+<em>effectively</em> sparse for large, sparse graphs (only present edges
+are stored), but this is not a CSR/CSC/COO sparse matrix—it is a plain
+Python dictionary structure. Conversion to SciPy sparse arrays is
+available via <code>to_scipy_sparse_array</code>.<a href="#fnref111" class="footnote-back">↩︎</a></p></li>
+<li id="fn112"><p>NetworkX includes <code>nx.draw()</code>,
+<code>nx.draw_networkx()</code>, and related functions that render
+graphs via Matplotlib (<code>networkx.drawing.nx_pylab</code>).
+Matplotlib is an optional dependency — NetworkX raises
+<code>ImportError</code> when it is absent. The drawing module is
+described in the documentation as basic/non-primary functionality.<a href="#fnref112" class="footnote-back">↩︎</a></p></li>
+<li id="fn113"><p><code>DAG.to_graphviz()</code> returns a pygraphviz
+<code>AGraph</code> (requires the optional <code>pygraphviz</code>
+dependency); <code>DAG.to_daft()</code> returns a <code>daft</code> PGM
+object. Neither is a <code>plot()</code> method that renders to screen
+directly. No built-in <code>matplotlib</code>-based <code>plot()</code>
+is present.<a href="#fnref113" class="footnote-back">↩︎</a></p></li>
+<li id="fn114"><p>Layout computation is delegated to pygraphviz (via
+<code>to_graphviz()</code>) or to NetworkX spring-layout variants
+(inside <code>to_daft()</code>). pgmpy does not implement its own layout
+algorithms.<a href="#fnref114" class="footnote-back">↩︎</a></p></li>
+<li id="fn115"><p>Tetrad’s GUI module (<code>tetrad-gui</code>) provides
+rich interactive graph visualization, but this is a Swing-based desktop
+application component, not a programmatic plotting API. From the library
+(<code>tetrad-lib</code>), <code>LayoutUtil</code> computes node
+coordinates (Kamada-Kawai, Fruchterman-Reingold, circle, square,
+causal-order layouts) and <code>GraphSaveLoadUtils.graphToDot()</code>
+exports to Graphviz for external rendering. There is no
+<code>plot(graph)</code> method in the library that renders directly to
+a file or screen without the GUI.<a href="#fnref115" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

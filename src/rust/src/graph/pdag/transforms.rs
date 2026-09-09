@@ -4,6 +4,7 @@
 use super::Pdag;
 use crate::edges::EdgeClass;
 use crate::graph::alg::{csr, meek};
+use crate::graph::mpdag::Mpdag;
 use crate::graph::ug::Ug;
 use crate::graph::CaugiGraph;
 use std::collections::HashSet;
@@ -24,8 +25,13 @@ impl Pdag {
         Ug::new(Arc::new(core))
     }
 
-    /// Apply Meek closure on a PDAG and return the resulting CPDAG.
-    pub fn to_cpdag(&self) -> Result<Pdag, String> {
+    /// Apply Meek closure on a PDAG and return the resulting MPDAG.
+    ///
+    /// This is *not* `Pdag → Cpdag`: closure only orients edges that Meek's
+    /// rules force, so the result may include non-compelled (background-
+    /// knowledge) orientations and need not have chordal chain components.
+    /// For a true CPDAG, start from a `Dag` and call `Dag::to_cpdag`.
+    pub fn to_mpdag(&self) -> Result<Mpdag, String> {
         let n = self.n() as usize;
 
         let mut pa: Vec<HashSet<u32>> = vec![HashSet::new(); n];
@@ -116,12 +122,13 @@ impl Pdag {
             /*simple=*/ true,
             self.core_ref().registry.clone(),
         )?;
-        Pdag::new(Arc::new(core))
+        let pdag = Pdag::new(Arc::new(core))?;
+        Ok(Mpdag::from_closed_unchecked(pdag))
     }
 
     /// Orient all compelled edges implied by Meek rules (R1..R4).
-    pub fn meek_closure(&self) -> Result<Pdag, String> {
-        self.to_cpdag()
+    pub fn meek_closure(&self) -> Result<Mpdag, String> {
+        self.to_mpdag()
     }
 }
 
@@ -238,6 +245,42 @@ mod tests {
             assert_eq!(m1.undirected_of(i), m2.undirected_of(i));
             assert_eq!(m1.children_of(i), m2.children_of(i));
         }
+    }
+
+    #[test]
+    fn meek_closure_dense_component_is_closed() {
+        // Regression for a panic in `count_dags`/`enumerate_dags`: on dense
+        // chain components a node ends up with neighbors in several buckets,
+        // and the `adjacent` check used to binary-search the (unsorted)
+        // concatenation of buckets, so `is_meek_closed` wrongly reported the
+        // closure as non-closed and `from_closed_unchecked` panicked.
+        let (reg, d, u) = setup();
+        let mut b = GraphBuilder::new_with_registry(7, true, &reg);
+        // node 6 (R "7") -> R nodes 1,3,5,6 == idx 0,2,4,5
+        for t in [0u32, 2, 4, 5] {
+            b.add_edge(6, t, d).unwrap();
+        }
+        let und_pairs = [
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (0, 4),
+            (0, 5),
+            (1, 2),
+            (1, 3),
+            (1, 4),
+            (1, 5),
+            (2, 3),
+            (3, 4),
+            (3, 5),
+            (4, 5),
+        ];
+        for (a, c) in und_pairs {
+            b.add_edge(a, c, u).unwrap();
+        }
+        let p = Pdag::new(Arc::new(b.finalize().unwrap())).unwrap();
+        let m = p.meek_closure().unwrap();
+        assert!(m.is_meek_closed(), "closure result must be meek-closed");
     }
 
     // ── Tests derived from pgmpy, pcalg, and Perkovic (2017) ──────────────

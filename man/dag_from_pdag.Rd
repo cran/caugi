@@ -4,10 +4,12 @@
 \alias{dag_from_pdag}
 \title{Extend a PDAG to a DAG using the Dor-Tarsi Algorithm}
 \usage{
-dag_from_pdag(PDAG)
+dag_from_pdag(cg, PDAG)
 }
 \arguments{
-\item{PDAG}{A \code{caugi} object of class \code{"PDAG"}.}
+\item{cg}{A \code{caugi} object of class \code{"PDAG"}, \code{"MPDAG"}, or \code{"CPDAG"}.}
+
+\item{PDAG}{Deprecated alias for \code{cg}. Use \code{cg} instead.}
 }
 \value{
 A \code{caugi} object of class \code{"DAG"} representing a DAG extension
@@ -22,13 +24,13 @@ The procedure implements the Dor-Tarsi algorithm.
 If the PDAG cannot be consistently extended to a DAG, the function will raise an error.
 }
 \examples{
-PDAG <- caugi(
+pdag <- caugi(
   A \%---\% B,
   B \%---\% C,
   class = "PDAG"
 )
-DAG <- dag_from_pdag(PDAG)
-edges(DAG)
+dag <- dag_from_pdag(pdag)
+edges(dag)
 
 }
 \references{
@@ -36,14 +38,16 @@ Dor, D., & Tarsi, M. (1992). "A simple algorithm to construct a consistent
 extension of a partially directed acyclic graph".
 }
 \seealso{
-Other operations: 
-\code{\link{condition_marginalize}()},
-\code{\link{exogenize}()},
-\code{\link{latent_project}()},
-\code{\link{meek_closure}()},
-\code{\link{moralize}()},
-\code{\link{mutate_caugi}()},
-\code{\link{normalize_latent_structure}()},
-\code{\link{skeleton}()}
+Other operations:
+\code{\link[=condition_marginalize]{condition_marginalize()}},
+\code{\link[=count_dags]{count_dags()}},
+\code{\link[=enumerate_dags]{enumerate_dags()}},
+\code{\link[=exogenize]{exogenize()}},
+\code{\link[=latent_project]{latent_project()}},
+\code{\link[=meek_closure]{meek_closure()}},
+\code{\link[=moralize]{moralize()}},
+\code{\link[=mutate_caugi]{mutate_caugi()}},
+\code{\link[=normalize_latent_structure]{normalize_latent_structure()}},
+\code{\link[=skeleton]{skeleton()}}
 }
 \concept{operations}

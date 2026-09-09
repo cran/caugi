@@ -32,7 +32,8 @@ caugi_default_options <- function() {
       edge_style = list(
         arrow_size = 3,
         circle_size = 1.5,
-        fill = "black"
+        fill = "black",
+        route = TRUE
       ),
       label_style = list(),
       title_style = list(
@@ -89,6 +90,8 @@ caugi_default_options <- function() {
 #'   - `arrow_size`: Arrow size in mm (default: `3`)
 #'   - `circle_size`: Radius of endpoint circles for partial edges in mm (default: `1.5`)
 #'   - `fill`: Arrow/line color (default: `"black"`)
+#'   - `route`: Whether edges automatically bend around non-incident nodes they
+#'     would otherwise cross (default: `TRUE`)
 #' - `label_style`: List of label text parameters (see [grid::gpar()])
 #' - `title_style`: List of title text parameters:
 #'   - `col`: Text color (default: `"black"`)
@@ -96,9 +99,9 @@ caugi_default_options <- function() {
 #'   - `fontsize`: Font size in pts (default: `14.4`)
 #'
 #' Options set via `caugi_options()` serve as global defaults that can be
-#' overridden by arguments to [caugi::plot()].
+#' overridden by arguments to [plot.caugi()].
 #'
-#' @seealso [caugi::plot()] for per-plot style arguments, [grid::gpar()] for
+#' @seealso [plot.caugi()] for per-plot style arguments, [grid::gpar()] for
 #'   available graphical parameters
 #'
 #' @concept options

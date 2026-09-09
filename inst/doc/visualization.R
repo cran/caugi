@@ -235,6 +235,21 @@ plot(
 )
 
 ## -----------------------------------------------------------------------------
+cg_clique <- caugi(A %---% B + C, B %---% C)
+tiers_clique <- list(c("A", "B", "C"))
+layout_clique <- caugi_layout_tiered(
+  cg_clique,
+  tiers_clique,
+  orientation = "rows"
+)
+
+# A --- C bends around B (default); set route = FALSE to draw straight edges
+plot(cg_clique, layout = layout_clique)
+
+## -----------------------------------------------------------------------------
+plot(cg_clique, layout = layout_clique, edge_style = list(route = FALSE))
+
+## -----------------------------------------------------------------------------
 g <- caugi(
   A %o->% B,
   B %-->% C,

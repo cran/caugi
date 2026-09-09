@@ -16,6 +16,8 @@ NULL
 #'
 #' @param content A character string containing the Mermaid format graph.
 #'
+#' @returns A `caugi_mermaid` S7 object wrapping the Mermaid string.
+#'
 #' @family export
 #' @concept export
 #'
@@ -46,7 +48,9 @@ caugi_mermaid <- S7::new_class(
 #' * Directed edges (`-->`) use `-->` in Mermaid
 #' * Undirected edges (`---`) use `---` in Mermaid
 #' * Bidirected edges (`<->`) use `<-->` in Mermaid
-#' * Partial edges (`o->`) use `o-->` in Mermaid (circle end)
+#' * Partial edges (`o->`) use `o-->` in Mermaid (circle tail)
+#' * Partial edges (`--o`) use `--o` in Mermaid (circle head)
+#' * Partial edges (`o-o`) use `o--o` in Mermaid (circle both ends)
 #'
 #' Node names are automatically escaped if they contain special characters.
 #'
@@ -100,7 +104,10 @@ to_mermaid <- function(x, direction = "TD") {
       to <- escape_mermaid_id(edges_df$to[i])
       edge_type <- edges_df$edge[i]
 
-      # Determine edge operator
+      # Determine edge operator. Mermaid allows asymmetric endpoint markers:
+      # the start marker (`o`/`x`/`<`) and end marker (`o`/`x`/`>`) are parsed
+      # independently, so `o-->` is a circle tail with an arrow head -- matching
+      # caugi's `o->`. See destructStartLink()/destructEndLink() in Mermaid.
       if (edge_type == "-->") {
         operator <- "-->"
       } else if (edge_type == "---") {
@@ -109,6 +116,10 @@ to_mermaid <- function(x, direction = "TD") {
         operator <- "<-->"
       } else if (edge_type == "o->") {
         operator <- "o-->"
+      } else if (edge_type == "--o") {
+        operator <- "--o"
+      } else if (edge_type == "o-o") {
+        operator <- "o--o"
       } else {
         # Unknown edge type, default to directed
         operator <- "-->"
