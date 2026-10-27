@@ -23,7 +23,7 @@ caugi_graphml <- S7::new_class(
   "caugi_graphml",
   parent = caugi_export,
   constructor = function(content) {
-    S7::new_object(caugi_export, content = content, format = "graphml")
+    S7::new_object(caugi_export(), content = content, format = "graphml")
   }
 )
 
@@ -68,7 +68,6 @@ to_graphml <- function(x) {
   is_caugi(x, throw_error = TRUE)
   xml <- rs_serialize_graphml(
     x@session,
-    caugi_registry(),
     x@graph_class
   )
 

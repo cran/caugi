@@ -32,6 +32,8 @@ rs_set_edges <- function(session, from, to, etype) invisible(.Call(wrap__rs_set_
 
 rs_replace_edges <- function(session, from, to, etype) invisible(.Call(wrap__rs_replace_edges, session, from, to, etype))
 
+rs_remove_edges <- function(session, from, to, glyphs) .Call(wrap__rs_remove_edges, session, from, to, glyphs)
+
 rs_set_n <- function(session, n) invisible(.Call(wrap__rs_set_n, session, n))
 
 rs_set_simple <- function(session, simple) invisible(.Call(wrap__rs_set_simple, session, simple))
@@ -65,6 +67,10 @@ rs_index_of <- function(session, name) .Call(wrap__rs_index_of, session, name)
 rs_indices_of <- function(session, names) .Call(wrap__rs_indices_of, session, names)
 
 rs_edges_df <- function(session) .Call(wrap__rs_edges_df, session)
+
+rs_codes_of <- function(session, glyphs) .Call(wrap__rs_codes_of, session, glyphs)
+
+rs_canonical_edges <- function(session) .Call(wrap__rs_canonical_edges, session)
 
 rs_is_valid <- function(session) .Call(wrap__rs_is_valid, session)
 
@@ -113,6 +119,8 @@ rs_is_cpdag <- function(session) .Call(wrap__rs_is_cpdag, session)
 rs_is_mpdag <- function(session) .Call(wrap__rs_is_mpdag, session)
 
 rs_to_cpdag <- function(session) .Call(wrap__rs_to_cpdag, session)
+
+rs_dag_extension <- function(session) .Call(wrap__rs_dag_extension, session)
 
 rs_meek_closure <- function(session) .Call(wrap__rs_meek_closure, session)
 
@@ -174,15 +182,15 @@ graph_builder_resolve_class <- function(b, class) .Call(wrap__graph_builder_reso
 
 rs_compute_tiered_layout <- function(session, tier_assignments, num_tiers, orientation) .Call(wrap__rs_compute_tiered_layout, session, tier_assignments, num_tiers, orientation)
 
-rs_write_caugi_file <- function(session, reg, graph_class, path, comment, tags) invisible(.Call(wrap__rs_write_caugi_file, session, reg, graph_class, path, comment, tags))
+rs_write_caugi_file <- function(session, graph_class, path, comment, tags) invisible(.Call(wrap__rs_write_caugi_file, session, graph_class, path, comment, tags))
 
 read_caugi_file <- function(path, reg) .Call(wrap__read_caugi_file, path, reg)
 
-rs_serialize_caugi <- function(session, reg, graph_class, comment, tags) .Call(wrap__rs_serialize_caugi, session, reg, graph_class, comment, tags)
+rs_serialize_caugi <- function(session, graph_class, comment, tags) .Call(wrap__rs_serialize_caugi, session, graph_class, comment, tags)
 
 deserialize_caugi <- function(json, reg) .Call(wrap__deserialize_caugi, json, reg)
 
-rs_serialize_graphml <- function(session, reg, graph_class) .Call(wrap__rs_serialize_graphml, session, reg, graph_class)
+rs_serialize_graphml <- function(session, graph_class) .Call(wrap__rs_serialize_graphml, session, graph_class)
 
 deserialize_graphml <- function(xml, reg) .Call(wrap__deserialize_graphml, xml, reg)
 

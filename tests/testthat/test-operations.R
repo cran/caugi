@@ -158,6 +158,30 @@ test_that("mutate_caugi throws error, when mutation isn't possible", {
   expect_error(mutate_caugi(cg, class = "DAG"), "Cannot convert caugi of class")
 })
 
+test_that("mutate_caugi keeps simple = FALSE where the target class allows it", {
+  # A bow is a valid, non-simple ADMG.
+  cg <- caugi(A %-->% B, A %<->% B, class = "UNKNOWN", simple = FALSE)
+  cg_admg <- mutate_caugi(cg, class = "ADMG")
+  expect_false(cg_admg@simple)
+  expect_silent(build(cg_admg))
+  expect_equal(children(cg_admg, "A"), "B")
+  expect_equal(spouses(cg_admg, "A"), "B")
+
+  cg_back <- mutate_caugi(cg_admg, class = "UNKNOWN")
+  expect_false(cg_back@simple)
+  expect_silent(build(cg_back))
+
+  # Simple-only targets become simple.
+  cg_dag_like <- caugi(A %-->% B, B %-->% C, class = "UNKNOWN", simple = FALSE)
+  cg_dag <- mutate_caugi(cg_dag_like, class = "DAG")
+  expect_true(cg_dag@simple)
+  expect_silent(build(cg_dag))
+  expect_equal(children(cg_dag, "A"), "B")
+
+  # Simple sources stay simple.
+  expect_true(mutate_caugi(caugi(A %-->% B), class = "ADMG")@simple)
+})
+
 test_that("mutate_caugi works for all classes to UNKNOWN", {
   cg_pdag <- caugi(
     A %-->% B,
@@ -952,6 +976,30 @@ test_that("dag_from_pdag preserves directed edges in mixed extension cases", {
   expect_true(xor(has_dir("C", "D"), has_dir("D", "C")))
   expect_false(has_dir("A", "D") && has_dir("C", "D"))
   expect_equal(nrow(ed), 4L)
+})
+
+test_that("dag_from_pdag adds no v-structure the PDAG did not have (#298)", {
+  # `A --> B <-- C` with `D --- B`. Orienting `D --> B` would add two
+  # v-structures, since D is adjacent to neither A nor C, so the only
+  # consistent extension is `B --> D`. Dor-Tarsi gets this from condition
+  # (b) quantifying over *all* neighbours of the candidate sink, not just
+  # its undirected ones -- B has the parents A and C, which D is not
+  # adjacent to, so B is not a sink here and D is.
+  pdag <- caugi(
+    A %-->% B,
+    C %-->% B,
+    B %---% D,
+    class = "PDAG"
+  )
+
+  dag <- dag_from_pdag(pdag)
+  ed <- as.data.frame(edges(dag))
+  expect_true(is_dag(dag))
+  expect_equal(nrow(ed), 3L)
+  expect_true(any(ed$from == "B" & ed$to == "D"))
+  # The v-structures are exactly the ones the PDAG had.
+  expect_setequal(parents(dag, "B"), c("A", "C"))
+  expect_setequal(parents(dag, "D"), "B")
 })
 
 test_that("dag_from_pdag orients each undirected edge exactly once", {

@@ -777,7 +777,6 @@ fn rs_parent_aid(
 #[extendr]
 fn rs_write_caugi_file(
     mut session: ExternalPtr<GraphSession>,
-    reg: ExternalPtr<EdgeRegistry>,
     graph_class: &str,
     path: &str,
     comment: Nullable<&str>,
@@ -796,7 +795,6 @@ fn rs_write_caugi_file(
 
     graph::serialization::write_caugi_file(
         view.as_ref(),
-        reg.as_ref(),
         graph_class,
         node_names_vec,
         path,
@@ -809,7 +807,6 @@ fn rs_write_caugi_file(
 #[extendr]
 fn rs_serialize_caugi(
     mut session: ExternalPtr<GraphSession>,
-    reg: ExternalPtr<EdgeRegistry>,
     graph_class: &str,
     comment: Nullable<&str>,
     tags: Nullable<Strings>,
@@ -827,7 +824,6 @@ fn rs_serialize_caugi(
 
     graph::serialization::serialize_caugi(
         view.as_ref(),
-        reg.as_ref(),
         graph_class,
         node_names_vec,
         comment_opt,
@@ -837,16 +833,12 @@ fn rs_serialize_caugi(
 }
 
 #[extendr]
-fn rs_serialize_graphml(
-    mut session: ExternalPtr<GraphSession>,
-    reg: ExternalPtr<EdgeRegistry>,
-    graph_class: &str,
-) -> String {
+fn rs_serialize_graphml(mut session: ExternalPtr<GraphSession>, graph_class: &str) -> String {
     let node_names_vec: Vec<String> = session.as_ref().names().to_vec();
 
     let view = session.as_mut().view().unwrap_or_else(|e| throw_r_error(e));
 
-    graph::graphml::serialize_graphml(view.as_ref(), reg.as_ref(), graph_class, node_names_vec)
+    graph::graphml::serialize_graphml(view.as_ref(), graph_class, node_names_vec)
         .unwrap_or_else(|e| throw_r_error(e))
 }
 
@@ -960,6 +952,62 @@ fn rs_replace_edges(
         edges.push(u, v, t);
     }
     session.as_mut().replace_edges_for_pairs(edges);
+}
+
+#[extendr]
+fn rs_remove_edges(
+    session: ExternalPtr<GraphSession>,
+    from: Strings,
+    to: Strings,
+    glyphs: Robj,
+) -> ExternalPtr<GraphSession> {
+    let glyphs: Option<Strings> = if glyphs.is_null() {
+        None
+    } else {
+        Some(
+            glyphs
+                .try_into()
+                .unwrap_or_else(|_| throw_r_error("`edge` must be a character vector.")),
+        )
+    };
+    if from.len() != to.len() || glyphs.as_ref().is_some_and(|g| g.len() != from.len()) {
+        throw_r_error("`from`, `edge`, `to` must be equal length.");
+    }
+    let s = session.as_ref();
+    if glyphs.is_none() && !s.simple() {
+        throw_r_error("When removing edges without specifying `edge`, `cg` must be simple.");
+    }
+    let mut typed = Vec::new();
+    let mut pairs = Vec::new();
+    for i in 0..from.len() {
+        let from = from.elt(i);
+        let to = to.elt(i);
+        if from.is_na() || to.is_na() {
+            continue;
+        }
+        let (Some(u), Some(v)) = (s.index_of(from.as_ref()), s.index_of(to.as_ref())) else {
+            continue;
+        };
+        if let Some(glyphs) = &glyphs {
+            let glyph = glyphs.elt(i);
+            if !glyph.is_na() {
+                if let Some(code) = s
+                    .registry()
+                    .specs
+                    .iter()
+                    .position(|spec| spec.glyph == glyph.as_ref())
+                {
+                    typed.push((u, v, code as u8));
+                }
+            }
+        } else {
+            pairs.push((u, v));
+        }
+    }
+    ExternalPtr::new(
+        s.without_edges(&typed, &pairs)
+            .unwrap_or_else(|e| throw_r_error(e)),
+    )
 }
 
 #[extendr]
@@ -1182,6 +1230,57 @@ fn rs_edges_df(session: ExternalPtr<GraphSession>) -> Robj {
     }
 
     list!(from0 = from0, to0 = to0, code = code, glyph = glyph).into_robj()
+}
+
+/// Codes of `glyphs` in this session's own registry snapshot, so edges added
+/// to an existing graph keep the meaning they had when it was built.
+#[extendr]
+fn rs_codes_of(session: ExternalPtr<GraphSession>, glyphs: Strings) -> Vec<i32> {
+    let specs = &session.as_ref().registry().specs;
+    glyphs
+        .iter()
+        .map(|g| {
+            specs
+                .iter()
+                .position(|s| s.glyph == g.as_ref())
+                .unwrap_or_else(|| {
+                    throw_r_error(format!(
+                        "Edge type '{}' is not in this graph's registry. \
+                         Rebuild the graph to use edges registered after it was created.",
+                        g.as_ref()
+                    ))
+                }) as i32
+        })
+        .collect()
+}
+
+/// Edges in canonical form for comparing graphs: symmetric edges are oriented
+/// by node name and rows are sorted. Each row carries its full spec from this
+/// session's registry, so glyphs that mean different things never compare
+/// equal.
+#[extendr]
+fn rs_canonical_edges(session: ExternalPtr<GraphSession>) -> Robj {
+    let s = session.as_ref();
+    let (e, specs, names) = (s.edge_buffer(), &s.registry().specs, s.names());
+    let mut rows: Vec<_> = (0..e.len())
+        .map(|i| {
+            let spec = &specs[e.etype[i] as usize];
+            let (mut u, mut v) = (&names[e.from[i] as usize], &names[e.to[i] as usize]);
+            if spec.symmetric && u > v {
+                std::mem::swap(&mut u, &mut v);
+            }
+            // ponytail: Debug covers every EdgeSpec field, including future ones.
+            (u, v, format!("{spec:?}"), &spec.glyph)
+        })
+        .collect();
+    rows.sort_unstable();
+    list!(
+        from = rows.iter().map(|r| r.0.as_str()).collect::<Vec<_>>(),
+        edge = rows.iter().map(|r| r.3.as_str()).collect::<Vec<_>>(),
+        to = rows.iter().map(|r| r.1.as_str()).collect::<Vec<_>>(),
+        spec = rows.iter().map(|r| r.2.as_str()).collect::<Vec<_>>()
+    )
+    .into_robj()
 }
 
 #[extendr]
@@ -1470,6 +1569,25 @@ fn districts(cg: Robj, nodes: Robj, index: Robj, all: Robj) -> Robj {
 }
 
 #[extendr]
+fn components(cg: Robj, mode: &str) -> Robj {
+    use graph::alg::components::{components, ComponentMode};
+
+    let mode = match mode {
+        "weak" => ComponentMode::Weak,
+        "strong" => ComponentMode::Strong,
+        _ => throw_r_error("`mode` must be 'weak' or 'strong'."),
+    };
+    let mut session = session_ptr_from_cg(&cg);
+    let core = session.as_mut().core().unwrap_or_else(|e| throw_r_error(e));
+    let groups = components(&core, mode);
+    let out: Vec<Robj> = groups
+        .iter()
+        .map(|group| indices_to_names(group, session.as_ref().names()))
+        .collect();
+    extendr_api::prelude::List::from_values(out).into_robj()
+}
+
+#[extendr]
 fn topological_sort(cg: Robj) -> Robj {
     let mut session = session_ptr_from_cg(&cg);
     let result = session
@@ -1572,6 +1690,16 @@ fn rs_to_cpdag(mut session: ExternalPtr<GraphSession>) -> ExternalPtr<GraphSessi
     let view = session
         .as_mut()
         .to_cpdag()
+        .unwrap_or_else(|e| throw_r_error(e));
+    let names: Vec<String> = session.as_ref().names().to_vec();
+    ExternalPtr::new(session_from_view(view, names))
+}
+
+#[extendr]
+fn rs_dag_extension(mut session: ExternalPtr<GraphSession>) -> ExternalPtr<GraphSession> {
+    let view = session
+        .as_mut()
+        .dag_extension()
         .unwrap_or_else(|e| throw_r_error(e));
     let names: Vec<String> = session.as_ref().names().to_vec();
     ExternalPtr::new(session_from_view(view, names))
@@ -2162,6 +2290,7 @@ extendr_module! {
     fn rs_clone;
     fn rs_set_edges;
     fn rs_replace_edges;
+    fn rs_remove_edges;
     fn rs_set_n;
     fn rs_set_simple;
     fn rs_set_class;
@@ -2179,6 +2308,8 @@ extendr_module! {
     fn rs_index_of;
     fn rs_indices_of;
     fn rs_edges_df;
+    fn rs_codes_of;
+    fn rs_canonical_edges;
     fn rs_is_valid;
     fn rs_build;
     fn children;
@@ -2190,6 +2321,7 @@ extendr_module! {
     fn markov_blanket;
     fn exogenous;
     fn topological_sort;
+    fn components;
     fn spouses;
     fn districts;
     fn parents;
@@ -2203,6 +2335,7 @@ extendr_module! {
     fn rs_is_cpdag;
     fn rs_is_mpdag;
     fn rs_to_cpdag;
+    fn rs_dag_extension;
     fn rs_meek_closure;
     fn rs_enumerate_dags;
     fn rs_count_dags;
